@@ -1,0 +1,27 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dataforge-storytelling
+  labels:
+    app: dataforge-storytelling
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - storytelling.dataforge.ai
+    secretName: dataforge-storytelling-tls
+  rules:
+  - host: storytelling.dataforge.ai
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: dataforge-storytelling
+            port:
+              number: 8007
