@@ -1,0 +1,68 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Pipeline Metadata",
+  "description": "Metadata for data pipeline runs",
+  "type": "object",
+  "properties": {
+    "pipeline_id": {
+      "type": "string",
+      "description": "Unique pipeline identifier"
+    },
+    "run_id": {
+      "type": "string",
+      "description": "Unique run identifier"
+    },
+    "name": {
+      "type": "string",
+      "description": "Pipeline name"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "running", "success", "failed", "cancelled"],
+      "description": "Pipeline run status"
+    },
+    "start_time": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Pipeline start timestamp"
+    },
+    "end_time": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Pipeline end timestamp"
+    },
+    "duration_seconds": {
+      "type": "number",
+      "description": "Duration in seconds"
+    },
+    "records_processed": {
+      "type": "integer",
+      "description": "Number of records processed"
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "type": {"type": "string"},
+        "connection": {"type": "string"},
+        "path": {"type": "string"}
+      }
+    },
+    "destination": {
+      "type": "object",
+      "properties": {
+        "type": {"type": "string"},
+        "connection": {"type": "string"},
+        "path": {"type": "string"}
+      }
+    },
+    "error": {
+      "type": "object",
+      "properties": {
+        "message": {"type": "string"},
+        "type": {"type": "string"},
+        "traceback": {"type": "string"}
+      }
+    }
+  },
+  "required": ["pipeline_id", "run_id", "name", "status", "start_time"]
+}

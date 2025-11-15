@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Data Quality Report",
+  "description": "Report from data quality validation",
+  "type": "object",
+  "properties": {
+    "report_id": {
+      "type": "string",
+      "description": "Unique report identifier"
+    },
+    "dataset": {
+      "type": "string",
+      "description": "Dataset identifier"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Report timestamp"
+    },
+    "overall_status": {
+      "type": "string",
+      "enum": ["passed", "failed", "warning"],
+      "description": "Overall quality status"
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "check_name": {"type": "string"},
+          "check_type": {"type": "string"},
+          "status": {"type": "string", "enum": ["passed", "failed", "warning"]},
+          "expectation": {"type": "string"},
+          "actual": {"type": "string"},
+          "message": {"type": "string"}
+        },
+        "required": ["check_name", "status"]
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "total_rows": {"type": "integer"},
+        "total_checks": {"type": "integer"},
+        "passed_checks": {"type": "integer"},
+        "failed_checks": {"type": "integer"},
+        "warnings": {"type": "integer"}
+      }
+    }
+  },
+  "required": ["report_id", "dataset", "timestamp", "overall_status", "checks"]
+}

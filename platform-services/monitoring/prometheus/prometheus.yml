@@ -1,0 +1,27 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    environment: 'local'
+    platform: 'dataforge'
+
+# Alerting configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Pipeline API
+  - job_name: 'pipeline-api'
+    static_configs:
+      - targets: ['pipeline-api:8000']
+    metrics_path: '/metrics'
+
+  # Add more services as they are implemented
