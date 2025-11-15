@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dataforge-data-monetization
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: dataforge-data-monetization
+  template:
+    metadata:
+      labels:
+        app: dataforge-data-monetization
+    spec:
+      containers:
+      - name: monetization-api
+        image: dataforge/data-monetization:latest
+        ports:
+        - containerPort: 8010
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dataforge-data-monetization
+spec:
+  ports:
+  - port: 8010
+    targetPort: 8010
+  selector:
+    app: dataforge-data-monetization

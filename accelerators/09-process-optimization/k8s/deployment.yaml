@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dataforge-process-optimization
+  labels:
+    app: dataforge-process-optimization
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: dataforge-process-optimization
+  template:
+    metadata:
+      labels:
+        app: dataforge-process-optimization
+    spec:
+      containers:
+      - name: process-api
+        image: dataforge/process-optimization:latest
+        ports:
+        - containerPort: 8009
+        env:
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: dataforge-secrets
+              key: openai-api-key
+              optional: true
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dataforge-process-optimization
+spec:
+  ports:
+  - port: 8009
+    targetPort: 8009
+  selector:
+    app: dataforge-process-optimization
