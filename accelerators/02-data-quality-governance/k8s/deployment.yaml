@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: quality-api
+  namespace: dataforge
+  labels:
+    app: quality-api
+    accelerator: data-quality-governance
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: quality-api
+  template:
+    metadata:
+      labels:
+        app: quality-api
+    spec:
+      containers:
+      - name: api
+        image: dataforge/quality-api:latest
+        ports:
+        - containerPort: 8001
+          name: http
+        env:
+        - name: DATAFORGE_ENV
+          value: "production"
+        - name: LOG_LEVEL
+          value: "INFO"
+        - name: POSTGRES_HOST
+          valueFrom:
+            secretKeyRef:
+              name: dataforge-secrets
+              key: postgres-host
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: dataforge-secrets
+              key: postgres-password
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8001
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8001
+          initialDelaySeconds: 10
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: quality-api
+  namespace: dataforge
+spec:
+  selector:
+    app: quality-api
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 8001
+  type: ClusterIP
