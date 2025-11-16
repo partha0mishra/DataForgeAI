@@ -1,11 +1,13 @@
 """Pydantic schemas for API request/response validation."""
 from .models import (
     ModelCreate,
+    ModelCreateFromMLflow,
     ModelResponse,
     ModelUpdate,
     ModelMetricsUpdate,
     ModelListResponse,
     ModelComparisonResponse,
+    ModelPromoteRequest,
 )
 from .deployments import (
     DeploymentCreate,
@@ -14,6 +16,7 @@ from .deployments import (
     DeploymentStatsResponse,
     DeploymentListResponse,
     CanaryTrafficUpdate,
+    DeploymentRollbackResponse,
 )
 from .experiments import (
     ExperimentCreate,
@@ -21,9 +24,13 @@ from .experiments import (
     ExperimentUpdate,
     ExperimentDetailsResponse,
     ExperimentLeaderboardResponse,
+    ExperimentsSummaryResponse,
+    ExperimentSyncRequest,
     RunCreate,
     RunMetricsLog,
     RunParamsLog,
+    RunEndRequest,
+    RunComparisonResponse,
 )
 from .drift import (
     DataDriftRequest,
@@ -37,11 +44,13 @@ from .drift import (
 __all__ = [
     # Models
     "ModelCreate",
+    "ModelCreateFromMLflow",
     "ModelResponse",
     "ModelUpdate",
     "ModelMetricsUpdate",
     "ModelListResponse",
     "ModelComparisonResponse",
+    "ModelPromoteRequest",
     # Deployments
     "DeploymentCreate",
     "DeploymentResponse",
@@ -49,15 +58,20 @@ __all__ = [
     "DeploymentStatsResponse",
     "DeploymentListResponse",
     "CanaryTrafficUpdate",
+    "DeploymentRollbackResponse",
     # Experiments
     "ExperimentCreate",
     "ExperimentResponse",
     "ExperimentUpdate",
     "ExperimentDetailsResponse",
     "ExperimentLeaderboardResponse",
+    "ExperimentsSummaryResponse",
+    "ExperimentSyncRequest",
     "RunCreate",
     "RunMetricsLog",
     "RunParamsLog",
+    "RunEndRequest",
+    "RunComparisonResponse",
     # Drift
     "DataDriftRequest",
     "PredictionDriftRequest",

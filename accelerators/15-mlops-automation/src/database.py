@@ -8,14 +8,23 @@ from src.models.base import Base
 
 settings = get_settings()
 
-# Create engine
-engine = create_engine(
-    settings.database_url,
-    pool_size=settings.database_pool_size,
-    max_overflow=settings.database_max_overflow,
-    pool_pre_ping=True,  # Verify connections before using
-    echo=settings.debug
-)
+# Create engine with appropriate settings for database type
+if settings.database_url.startswith("sqlite"):
+    # SQLite doesn't support pool_size and max_overflow
+    engine = create_engine(
+        settings.database_url,
+        connect_args={"check_same_thread": False},
+        echo=settings.debug
+    )
+else:
+    # PostgreSQL and other databases
+    engine = create_engine(
+        settings.database_url,
+        pool_size=settings.database_pool_size,
+        max_overflow=settings.database_max_overflow,
+        pool_pre_ping=True,  # Verify connections before using
+        echo=settings.debug
+    )
 
 # Create session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
