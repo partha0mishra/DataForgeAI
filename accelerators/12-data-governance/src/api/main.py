@@ -1,6 +1,6 @@
 """FastAPI REST API for Data Governance."""
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, UploadFile, Depends, Request
 from pydantic import BaseModel
 from typing import Optional
 import pandas as pd
@@ -14,7 +14,30 @@ from classification.classifier import DataClassifier
 from compliance.checker import ComplianceChecker
 from audit.trail import AuditTrail
 
-app = FastAPI(title="DataForge Data Governance", version="0.1.0")
+# Import authentication
+try:
+    from dataforge_common import (
+        get_current_user,
+        get_optional_user,
+        require_roles,
+        create_auth_router,
+        User,
+    )
+    AUTH_ENABLED = True
+except ImportError:
+    print("Warning: dataforge-common not installed. Authentication disabled.")
+    AUTH_ENABLED = False
+
+app = FastAPI(
+    title="DataForge Data Governance",
+    version="0.1.0",
+    description="Enterprise data governance with PII detection, classification, and compliance",
+)
+
+# Include authentication router if available
+if AUTH_ENABLED:
+    auth_router = create_auth_router()
+    app.include_router(auth_router)
 
 pii_detector = PIIDetector()
 data_classifier = DataClassifier()
@@ -36,11 +59,28 @@ async def health_check():
 
 
 @app.post("/pii/scan")
-async def scan_pii(file: UploadFile = File(...)):
-    """Scan file for PII."""
+async def scan_pii(
+    file: UploadFile = File(...),
+    request: Request = None,
+    current_user: Optional[User] = Depends(get_current_user) if AUTH_ENABLED else None,
+):
+    """Scan file for PII.
+
+    Requires authentication. Logs access to audit trail.
+    """
     try:
         df = pd.read_csv(file.file)
         report = pii_detector.scan_dataframe(df)
+
+        # Log audit event
+        if current_user:
+            audit_trail.log_access(
+                user_id=current_user.user_id,
+                action="pii_scan",
+                resource_type="file",
+                resource_id=file.filename or "unknown",
+                ip_address=request.client.host if request else None,
+            )
 
         return {
             "total_rows": report.total_rows,
@@ -65,11 +105,26 @@ async def scan_pii(file: UploadFile = File(...)):
 async def mask_pii(
     file: UploadFile = File(...),
     strategy: str = "redact",
+    request: Request = None,
+    current_user: Optional[User] = Depends(get_current_user) if AUTH_ENABLED else None,
 ):
-    """Mask PII in file."""
+    """Mask PII in file.
+
+    Requires authentication. Logs access to audit trail.
+    """
     try:
         df = pd.read_csv(file.file)
         masked_df = pii_detector.mask_dataframe(df, strategy=strategy)
+
+        # Log audit event
+        if current_user:
+            audit_trail.log_access(
+                user_id=current_user.user_id,
+                action="pii_mask",
+                resource_type="file",
+                resource_id=file.filename or "unknown",
+                ip_address=request.client.host if request else None,
+            )
 
         return {
             "message": "PII masked successfully",
@@ -83,11 +138,28 @@ async def mask_pii(
 
 
 @app.post("/classify")
-async def classify_data(file: UploadFile = File(...)):
-    """Classify data by sensitivity."""
+async def classify_data(
+    file: UploadFile = File(...),
+    request: Request = None,
+    current_user: Optional[User] = Depends(get_current_user) if AUTH_ENABLED else None,
+):
+    """Classify data by sensitivity.
+
+    Requires authentication. Logs access to audit trail.
+    """
     try:
         df = pd.read_csv(file.file)
         classifications = data_classifier.classify_dataframe(df)
+
+        # Log audit event
+        if current_user:
+            audit_trail.log_access(
+                user_id=current_user.user_id,
+                action="data_classify",
+                resource_type="file",
+                resource_id=file.filename or "unknown",
+                ip_address=request.client.host if request else None,
+            )
 
         return {
             "classifications": {
@@ -106,8 +178,13 @@ async def check_compliance(
     has_consent: bool = False,
     retention_days: Optional[int] = None,
     data_age_days: Optional[int] = None,
+    request: Request = None,
+    current_user: Optional[User] = Depends(get_current_user) if AUTH_ENABLED else None,
 ):
-    """Check GDPR compliance."""
+    """Check GDPR compliance.
+
+    Requires authentication. Logs access to audit trail.
+    """
     try:
         df = pd.read_csv(file.file)
 
@@ -117,6 +194,16 @@ async def check_compliance(
             retention_days=retention_days,
             data_age_days=data_age_days,
         )
+
+        # Log audit event
+        if current_user:
+            audit_trail.log_access(
+                user_id=current_user.user_id,
+                action="compliance_check",
+                resource_type="file",
+                resource_id=file.filename or "unknown",
+                ip_address=request.client.host if request else None,
+            )
 
         return {
             "compliant": report.compliant,
@@ -140,19 +227,30 @@ async def check_compliance(
 
 @app.post("/audit/log")
 async def log_audit(
-    user_id: str,
     action: str,
     resource_type: str,
     resource_id: str,
-    ip_address: Optional[str] = None,
+    request: Request = None,
+    current_user: Optional[User] = Depends(get_current_user) if AUTH_ENABLED else None,
 ):
-    """Log audit event."""
+    """Log audit event.
+
+    Requires authentication. User ID is taken from authenticated user.
+    """
+    if not current_user and AUTH_ENABLED:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+        )
+
+    user_id = current_user.user_id if current_user else "anonymous"
+
     event = audit_trail.log_access(
         user_id=user_id,
         action=action,
         resource_type=resource_type,
         resource_id=resource_id,
-        ip_address=ip_address,
+        ip_address=request.client.host if request else None,
     )
 
     return {
@@ -165,8 +263,12 @@ async def log_audit(
 async def get_audit_events(
     user_id: Optional[str] = None,
     resource_id: Optional[str] = None,
+    current_user: Optional[User] = Depends(require_roles(["admin"])) if AUTH_ENABLED else None,
 ):
-    """Get audit events."""
+    """Get audit events.
+
+    Requires admin role.
+    """
     events = audit_trail.get_events(
         user_id=user_id,
         resource_id=resource_id,

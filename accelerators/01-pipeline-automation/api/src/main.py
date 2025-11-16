@@ -3,12 +3,27 @@
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from dataforge_common.logging import get_logger
 from dataforge_common.monitoring import increment_counter, track_duration
+
+# Import authentication
+try:
+    from dataforge_common import (
+        get_current_user,
+        get_optional_user,
+        require_roles,
+        create_auth_router,
+        User,
+    )
+    AUTH_ENABLED = True
+except ImportError:
+    print("Warning: dataforge-common not installed. Authentication disabled.")
+    AUTH_ENABLED = False
+
 
 logger = get_logger(__name__)
 
@@ -18,6 +33,11 @@ app = FastAPI(
     description="API for managing data pipelines",
     version="0.1.0"
 )
+# Include authentication router if available
+if AUTH_ENABLED:
+    auth_router = create_auth_router()
+    app.include_router(auth_router)
+
 
 # Add CORS middleware
 app.add_middleware(

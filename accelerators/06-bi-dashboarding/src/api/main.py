@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
@@ -14,7 +14,7 @@ from dataforge_common.monitoring import increment_counter, track_duration
 
 # Import dashboard modules
 import sys
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__, Request, Depends).parent.parent))
 
 from dashboard.dashboard_manager import (
     Dashboard,
@@ -25,6 +25,21 @@ from dashboard.dashboard_manager import (
 from visualization.chart_builder import ChartBuilder
 from data.query_engine import QueryEngine
 
+# Import authentication
+try:
+    from dataforge_common import (
+        get_current_user,
+        get_optional_user,
+        require_roles,
+        create_auth_router,
+        User,
+    )
+    AUTH_ENABLED = True
+except ImportError:
+    print("Warning: dataforge-common not installed. Authentication disabled.")
+    AUTH_ENABLED = False
+
+
 logger = get_logger(__name__)
 
 # Create FastAPI app
@@ -33,6 +48,11 @@ app = FastAPI(
     description="Business Intelligence dashboards with interactive visualizations",
     version="0.1.0",
 )
+# Include authentication router if available
+if AUTH_ENABLED:
+    auth_router = create_auth_router()
+    app.include_router(auth_router)
+
 
 # Add CORS middleware
 app.add_middleware(

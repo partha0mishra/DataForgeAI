@@ -1,17 +1,37 @@
 """FastAPI REST API for Data Monetization."""
 
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException, Header, Request, Depends
 from pydantic import BaseModel
 from typing import Optional
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__, Request, Depends).parent.parent))
 
 from products.product_manager import ProductManager, ProductTier, AccessLevel, RateLimit
 from billing.usage_tracker import UsageTracker
 
-app = FastAPI(title="DataForge Data Monetization", version="0.1.0")
+# Import authentication
+try:
+    from dataforge_common import (
+        get_current_user,
+        get_optional_user,
+        require_roles,
+        create_auth_router,
+        User,
+    )
+    AUTH_ENABLED = True
+except ImportError:
+    print("Warning: dataforge-common not installed. Authentication disabled.")
+    AUTH_ENABLED = False
+
+
+app = FastAPI(title="DataForge Data Monetization", version="0.1.0", description="DataForge AI Accelerator")
+# Include authentication router if available
+if AUTH_ENABLED:
+    auth_router = create_auth_router()
+    app.include_router(auth_router)
+
 
 product_manager = ProductManager()
 usage_tracker = UsageTracker()

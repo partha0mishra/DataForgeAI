@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, UploadFile, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, PlainTextResponse
 from pydantic import BaseModel
@@ -22,6 +22,21 @@ from insights.insight_extractor import InsightExtractor, InsightType
 from narrative.narrative_generator import NarrativeGenerator, NarrativeStyle, NarrativeFormat
 from reports.report_builder import ReportBuilder
 
+# Import authentication
+try:
+    from dataforge_common import (
+        get_current_user,
+        get_optional_user,
+        require_roles,
+        create_auth_router,
+        User,
+    )
+    AUTH_ENABLED = True
+except ImportError:
+    print("Warning: dataforge-common not installed. Authentication disabled.")
+    AUTH_ENABLED = False
+
+
 logger = get_logger(__name__)
 
 # Create FastAPI app
@@ -30,6 +45,11 @@ app = FastAPI(
     description="AI-powered data storytelling with automatic insights and narratives",
     version="0.1.0",
 )
+# Include authentication router if available
+if AUTH_ENABLED:
+    auth_router = create_auth_router()
+    app.include_router(auth_router)
+
 
 # Add CORS middleware
 app.add_middleware(

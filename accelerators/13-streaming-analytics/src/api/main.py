@@ -1,17 +1,37 @@
 """FastAPI REST API for Streaming Analytics."""
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Depends
 from pydantic import BaseModel
 from datetime import datetime
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__, Request, Depends).parent.parent))
 
 from streaming.processor import StreamProcessor, StreamRecord
 from windowing.windows import TumblingWindow
 
-app = FastAPI(title="DataForge Streaming Analytics", version="0.1.0")
+# Import authentication
+try:
+    from dataforge_common import (
+        get_current_user,
+        get_optional_user,
+        require_roles,
+        create_auth_router,
+        User,
+    )
+    AUTH_ENABLED = True
+except ImportError:
+    print("Warning: dataforge-common not installed. Authentication disabled.")
+    AUTH_ENABLED = False
+
+
+app = FastAPI(title="DataForge Streaming Analytics", version="0.1.0", description="DataForge AI Accelerator")
+# Include authentication router if available
+if AUTH_ENABLED:
+    auth_router = create_auth_router()
+    app.include_router(auth_router)
+
 
 processor = StreamProcessor()
 window = TumblingWindow(duration_seconds=60)

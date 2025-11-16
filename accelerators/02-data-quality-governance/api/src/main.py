@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import List, Optional
 
 import pandas as pd
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -21,6 +21,21 @@ from src.quality_checker import DataQualityChecker
 from governance.pii_detection.detector import PIIDetector
 from governance.audit_logger.logger import AuditLogger
 
+# Import authentication
+try:
+    from dataforge_common import (
+        get_current_user,
+        get_optional_user,
+        require_roles,
+        create_auth_router,
+        User,
+    )
+    AUTH_ENABLED = True
+except ImportError:
+    print("Warning: dataforge-common not installed. Authentication disabled.")
+    AUTH_ENABLED = False
+
+
 logger = get_logger(__name__)
 
 # Create FastAPI app
@@ -29,6 +44,11 @@ app = FastAPI(
     description="API for data quality validation and governance",
     version="0.1.0",
 )
+# Include authentication router if available
+if AUTH_ENABLED:
+    auth_router = create_auth_router()
+    app.include_router(auth_router)
+
 
 # Add CORS middleware
 app.add_middleware(

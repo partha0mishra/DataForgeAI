@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -13,7 +13,7 @@ from dataforge_common.monitoring import increment_counter, track_duration
 
 # Import catalog modules
 import sys
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__, Request, Depends).parent.parent))
 
 from metadata.catalog import (
     ColumnMetadata,
@@ -30,6 +30,21 @@ from schema.schema_registry import (
 )
 from search.semantic_search import SemanticSearchEngine
 
+# Import authentication
+try:
+    from dataforge_common import (
+        get_current_user,
+        get_optional_user,
+        require_roles,
+        create_auth_router,
+        User,
+    )
+    AUTH_ENABLED = True
+except ImportError:
+    print("Warning: dataforge-common not installed. Authentication disabled.")
+    AUTH_ENABLED = False
+
+
 logger = get_logger(__name__)
 
 # Create FastAPI app
@@ -38,6 +53,11 @@ app = FastAPI(
     description="Data catalog with semantic search and lineage tracking",
     version="0.1.0",
 )
+# Include authentication router if available
+if AUTH_ENABLED:
+    auth_router = create_auth_router()
+    app.include_router(auth_router)
+
 
 # Add CORS middleware
 app.add_middleware(

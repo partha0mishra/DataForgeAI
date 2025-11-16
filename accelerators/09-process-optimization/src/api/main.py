@@ -4,7 +4,7 @@ import os
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, UploadFile, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -17,12 +17,32 @@ from mining.process_miner import ProcessMiner
 from analysis.bottleneck_analyzer import BottleneckAnalyzer
 from optimization.optimizer import ProcessOptimizer
 
+# Import authentication
+try:
+    from dataforge_common import (
+        get_current_user,
+        get_optional_user,
+        require_roles,
+        create_auth_router,
+        User,
+    )
+    AUTH_ENABLED = True
+except ImportError:
+    print("Warning: dataforge-common not installed. Authentication disabled.")
+    AUTH_ENABLED = False
+
+
 # Initialize FastAPI app
 app = FastAPI(
     title="DataForge Process Optimization",
     description="Business process mining, analysis, and optimization",
     version="0.1.0",
 )
+# Include authentication router if available
+if AUTH_ENABLED:
+    auth_router = create_auth_router()
+    app.include_router(auth_router)
+
 
 # Add CORS middleware
 app.add_middleware(
