@@ -6,9 +6,10 @@ from datetime import datetime
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__, Request, Depends).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from streaming.processor import StreamProcessor, StreamRecord
+from streaming.kafka_processor import KafkaStreamProcessor
 from windowing.windows import TumblingWindow
 
 # Import authentication
@@ -96,6 +97,107 @@ async def get_current_window():
         "sum": sum(result.values) if result.values else 0,
         "avg": sum(result.values) / len(result.values) if result.values else 0,
     }
+
+
+# Kafka Streaming Endpoints
+kafka_processor = None
+
+
+class KafkaStreamConfig(BaseModel):
+    """Kafka stream configuration."""
+    input_topics: list[str]
+    output_topic: str
+    consumer_group: str = "dataforge-stream-processor"
+
+
+class KafkaTransformationConfig(BaseModel):
+    """Kafka transformation configuration."""
+    type: str  # filter, enrich, aggregate
+    params: dict = {}
+
+
+@app.post("/kafka/stream/create")
+async def create_kafka_stream(config: KafkaStreamConfig):
+    """Create Kafka stream processor."""
+    global kafka_processor
+
+    try:
+        kafka_processor = KafkaStreamProcessor(
+            input_topics=config.input_topics,
+            output_topic=config.output_topic,
+            consumer_group=config.consumer_group,
+            enable_kafka=True,
+        )
+
+        return {
+            "status": "created",
+            "input_topics": config.input_topics,
+            "output_topic": config.output_topic,
+            "mode": "kafka" if kafka_processor.enable_kafka else "in-memory",
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/kafka/stream/transform")
+async def add_transformation(config: KafkaTransformationConfig):
+    """Add transformation to stream processor."""
+    if kafka_processor is None:
+        raise HTTPException(status_code=400, detail="Stream processor not created")
+
+    try:
+        from streaming.kafka_processor import filter_by_threshold, enrich_with_metadata, aggregate_by_key
+
+        if config.type == "filter":
+            threshold = config.params.get("threshold", 0)
+            kafka_processor.add_transformation(filter_by_threshold(threshold))
+
+        elif config.type == "enrich":
+            metadata = config.params.get("metadata", {})
+            kafka_processor.add_transformation(enrich_with_metadata(metadata))
+
+        elif config.type == "aggregate":
+            window_size = config.params.get("window_size", 100)
+            kafka_processor.add_transformation(aggregate_by_key(window_size))
+
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown transformation type: {config.type}")
+
+        return {"status": "added", "transformation": config.type}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/kafka/stream/metrics")
+async def get_stream_metrics():
+    """Get stream processor metrics."""
+    if kafka_processor is None:
+        raise HTTPException(status_code=400, detail="Stream processor not created")
+
+    return {
+        "metrics": kafka_processor.get_metrics(),
+        "mode": "kafka" if kafka_processor.enable_kafka else "in-memory",
+    }
+
+
+@app.post("/kafka/stream/stop")
+async def stop_stream():
+    """Stop stream processor."""
+    global kafka_processor
+
+    if kafka_processor is None:
+        raise HTTPException(status_code=400, detail="Stream processor not created")
+
+    try:
+        kafka_processor.close()
+        kafka_processor = None
+
+        return {"status": "stopped"}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":
