@@ -15,12 +15,15 @@ authors = [
 dependencies = [
     "pyyaml>=6.0",
     "sqlalchemy>=2.0.0",
+    "alembic>=1.13.0",  # Database migrations
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",  # Settings management
     "python-jose[cryptography]>=3.3.0",
     "passlib[bcrypt]>=1.7.4",
     "fastapi>=0.104.0",
-    "pydantic[email]>=2.0.0",
     "redis>=5.0.0",
     "psycopg2-binary>=2.9.0",  # PostgreSQL driver
+    "asyncpg>=0.29.0",  # Async PostgreSQL driver
 ]
 
 [project.optional-dependencies]
