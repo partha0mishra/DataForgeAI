@@ -1,0 +1,128 @@
+name: Test Accelerators
+
+on:
+  push:
+    branches: [main, develop, 'claude/**']
+    paths:
+      - 'accelerators/**'
+      - 'shared/**'
+      - '.github/workflows/test-accelerators.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'accelerators/**'
+
+jobs:
+  test-accelerator-2:
+    name: Test Data Quality & Governance
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install shared libraries
+      run: |
+        pip install -e shared/common
+        pip install -e shared/connectors
+
+    - name: Install accelerator dependencies
+      working-directory: accelerators/02-data-quality-governance
+      run: |
+        pip install -r requirements.txt
+        pip install pytest pytest-cov
+
+    - name: Run example
+      working-directory: accelerators/02-data-quality-governance
+      run: |
+        python examples/run_quality_checks.py
+
+  test-accelerator-3:
+    name: Test Knowledge Repository
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install shared libraries
+      run: |
+        pip install -e shared/common
+        pip install -e shared/ai-core
+
+    - name: Install accelerator dependencies
+      working-directory: accelerators/03-knowledge-repository
+      run: |
+        pip install -r requirements.txt
+        pip install pytest
+
+    - name: Run syntax check
+      working-directory: accelerators/03-knowledge-repository
+      run: |
+        python -m py_compile backend/src/indexing/document_processor.py
+        python -m py_compile backend/src/retrieval/rag_engine.py
+        python -m py_compile backend/src/api/main.py
+
+  test-accelerator-4:
+    name: Test Data Catalog
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install shared libraries
+      run: |
+        pip install -e shared/common
+        pip install -e shared/connectors
+        pip install -e shared/ai-core
+
+    - name: Install accelerator dependencies
+      working-directory: accelerators/04-data-catalog
+      run: |
+        pip install -r requirements.txt
+        pip install pytest
+
+    - name: Run example
+      working-directory: accelerators/04-data-catalog
+      run: |
+        python examples/catalog_example.py
+
+  test-accelerator-5:
+    name: Test Model Factory
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install shared libraries
+      run: |
+        pip install -e shared/common
+
+    - name: Install accelerator dependencies
+      working-directory: accelerators/05-model-factory
+      run: |
+        pip install -r requirements.txt
+        pip install pytest
+
+    - name: Run example
+      working-directory: accelerators/05-model-factory
+      run: |
+        python examples/ml_lifecycle_example.py

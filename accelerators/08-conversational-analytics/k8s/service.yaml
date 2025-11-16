@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: dataforge-conversational
+  labels:
+    app: dataforge-conversational
+    component: accelerator
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8008
+    targetPort: 8008
+    protocol: TCP
+    name: http
+  selector:
+    app: dataforge-conversational
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dataforge-conversational-lb
+  labels:
+    app: dataforge-conversational
+    component: accelerator
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 8008
+    protocol: TCP
+    name: http
+  selector:
+    app: dataforge-conversational

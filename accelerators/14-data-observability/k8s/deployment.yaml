@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dataforge-data-observability
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: dataforge-data-observability
+  template:
+    metadata:
+      labels:
+        app: dataforge-data-observability
+    spec:
+      containers:
+      - name: observability-api
+        image: dataforge/data-observability:latest
+        ports:
+        - containerPort: 8014
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dataforge-data-observability
+spec:
+  ports:
+  - port: 8014
+    targetPort: 8014
+  selector:
+    app: dataforge-data-observability

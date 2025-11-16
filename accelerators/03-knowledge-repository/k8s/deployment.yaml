@@ -1,0 +1,113 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: knowledge-repository
+  namespace: dataforge
+  labels:
+    app: knowledge-repository
+    tier: accelerator
+    component: knowledge
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: knowledge-repository
+  template:
+    metadata:
+      labels:
+        app: knowledge-repository
+        tier: accelerator
+        component: knowledge
+    spec:
+      containers:
+      - name: api
+        image: dataforge/knowledge-repository:latest
+        ports:
+        - containerPort: 8002
+          name: http
+        env:
+        - name: DATAFORGE_ENV
+          value: "production"
+        - name: LOG_LEVEL
+          value: "INFO"
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: knowledge-secrets
+              key: openai-api-key
+        - name: OPENAI_MODEL
+          value: "gpt-4"
+        - name: EMBEDDING_MODEL
+          value: "all-MiniLM-L6-v2"
+        - name: POSTGRES_HOST
+          value: "postgres-service"
+        - name: POSTGRES_PORT
+          value: "5432"
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secrets
+              key: database
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secrets
+              key: username
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secrets
+              key: password
+        - name: REDIS_HOST
+          value: "redis-service"
+        - name: REDIS_PORT
+          value: "6379"
+        - name: PROMETHEUS_ENABLED
+          value: "true"
+        - name: OTEL_ENABLED
+          value: "true"
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://otel-collector:4317"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8002
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8002
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        volumeMounts:
+        - name: vector-storage
+          mountPath: /app/vectors
+      volumes:
+      - name: vector-storage
+        persistentVolumeClaim:
+          claimName: knowledge-vectors-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: knowledge-vectors-pvc
+  namespace: dataforge
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: standard

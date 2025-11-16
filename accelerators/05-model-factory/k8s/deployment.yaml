@@ -1,0 +1,232 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: model-factory
+  namespace: dataforge
+  labels:
+    app: model-factory
+    tier: accelerator
+    component: ml
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: model-factory
+  template:
+    metadata:
+      labels:
+        app: model-factory
+        tier: accelerator
+        component: ml
+    spec:
+      containers:
+      - name: api
+        image: dataforge/model-factory:latest
+        ports:
+        - containerPort: 8004
+          name: http
+        env:
+        - name: DATAFORGE_ENV
+          value: "production"
+        - name: LOG_LEVEL
+          value: "INFO"
+        - name: MLFLOW_TRACKING_URI
+          value: "http://mlflow-service:5000"
+        - name: MLFLOW_S3_ENDPOINT_URL
+          value: "http://minio-service:9000"
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: minio-secrets
+              key: access-key
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: minio-secrets
+              key: secret-key
+        - name: MODEL_CACHE_SIZE
+          value: "10"
+        - name: PROMETHEUS_ENABLED
+          value: "true"
+        - name: OTEL_ENABLED
+          value: "true"
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://otel-collector:4317"
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8004
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8004
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mlflow
+  namespace: dataforge
+  labels:
+    app: mlflow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mlflow
+  template:
+    metadata:
+      labels:
+        app: mlflow
+    spec:
+      containers:
+      - name: mlflow
+        image: ghcr.io/mlflow/mlflow:v2.9.2
+        ports:
+        - containerPort: 5000
+          name: http
+        env:
+        - name: MLFLOW_BACKEND_STORE_URI
+          value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres-service:5432/mlflow"
+        - name: MLFLOW_DEFAULT_ARTIFACT_ROOT
+          value: "s3://mlflow-artifacts"
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: minio-secrets
+              key: access-key
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: minio-secrets
+              key: secret-key
+        - name: MLFLOW_S3_ENDPOINT_URL
+          value: "http://minio-service:9000"
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secrets
+              key: username
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secrets
+              key: password
+        command:
+        - mlflow
+        - server
+        - --host
+        - "0.0.0.0"
+        - --port
+        - "5000"
+        - --backend-store-uri
+        - "$(MLFLOW_BACKEND_STORE_URI)"
+        - --default-artifact-root
+        - "$(MLFLOW_DEFAULT_ARTIFACT_ROOT)"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minio
+  namespace: dataforge
+  labels:
+    app: minio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: minio
+  template:
+    metadata:
+      labels:
+        app: minio
+    spec:
+      containers:
+      - name: minio
+        image: minio/minio:latest
+        ports:
+        - containerPort: 9000
+          name: api
+        - containerPort: 9001
+          name: console
+        env:
+        - name: MINIO_ROOT_USER
+          valueFrom:
+            secretKeyRef:
+              name: minio-secrets
+              key: access-key
+        - name: MINIO_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: minio-secrets
+              key: secret-key
+        command:
+        - minio
+        - server
+        - /data
+        - --console-address
+        - ":9001"
+        volumeMounts:
+        - name: minio-storage
+          mountPath: /data
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+      volumes:
+      - name: minio-storage
+        persistentVolumeClaim:
+          claimName: minio-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: minio-pvc
+  namespace: dataforge
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: standard

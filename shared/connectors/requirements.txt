@@ -1,0 +1,9 @@
+dataforge-common>=0.1.0
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0
+pymysql>=1.1.0
+boto3>=1.28.0
+azure-storage-blob>=12.18.0
+google-cloud-storage>=2.10.0
+pandas>=2.0.0
+pyarrow>=13.0.0

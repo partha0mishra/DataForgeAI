@@ -1,0 +1,133 @@
+name: Test Shared Libraries
+
+on:
+  push:
+    branches: [main, develop, 'claude/**']
+    paths:
+      - 'shared/**'
+      - '.github/workflows/test-shared-libraries.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'shared/**'
+
+jobs:
+  test-common:
+    name: Test dataforge-common
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      working-directory: shared/common
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+        pip install pytest pytest-cov
+
+    - name: Run tests
+      working-directory: shared/common
+      run: |
+        pytest tests/ -v --cov=src --cov-report=xml --cov-report=term
+
+    - name: Upload coverage
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./shared/common/coverage.xml
+        flags: common
+
+  test-connectors:
+    name: Test dataforge-connectors
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      working-directory: shared/connectors
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ../common
+        pip install -e .
+        pip install pytest pytest-cov
+
+    - name: Run tests
+      working-directory: shared/connectors
+      env:
+        POSTGRES_HOST: localhost
+        POSTGRES_USER: postgres
+        POSTGRES_PASSWORD: postgres
+        REDIS_HOST: localhost
+      run: |
+        pytest tests/ -v --cov=src --cov-report=xml --cov-report=term
+
+    - name: Upload coverage
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./shared/connectors/coverage.xml
+        flags: connectors
+
+  test-ai-core:
+    name: Test dataforge-ai-core
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      working-directory: shared/ai-core
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ../common
+        pip install -e .
+        pip install pytest pytest-cov
+
+    - name: Run tests
+      working-directory: shared/ai-core
+      run: |
+        pytest tests/ -v --cov=src --cov-report=xml --cov-report=term
+
+    - name: Upload coverage
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./shared/ai-core/coverage.xml
+        flags: ai-core

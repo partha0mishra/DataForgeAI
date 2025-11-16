@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: data-catalog-service
+  namespace: dataforge
+  labels:
+    app: data-catalog
+    tier: accelerator
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8003
+    targetPort: 8003
+    protocol: TCP
+    name: http
+  selector:
+    app: data-catalog
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: data-catalog-external
+  namespace: dataforge
+  labels:
+    app: data-catalog
+    tier: accelerator
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 8003
+    protocol: TCP
+    name: http
+  selector:
+    app: data-catalog
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: neo4j-service
+  namespace: dataforge
+  labels:
+    app: neo4j
+spec:
+  type: ClusterIP
+  ports:
+  - port: 7474
+    name: http
+  - port: 7687
+    name: bolt
+  selector:
+    app: neo4j

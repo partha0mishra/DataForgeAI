@@ -1,0 +1,158 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-catalog
+  namespace: dataforge
+  labels:
+    app: data-catalog
+    tier: accelerator
+    component: catalog
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: data-catalog
+  template:
+    metadata:
+      labels:
+        app: data-catalog
+        tier: accelerator
+        component: catalog
+    spec:
+      containers:
+      - name: api
+        image: dataforge/data-catalog:latest
+        ports:
+        - containerPort: 8003
+          name: http
+        env:
+        - name: DATAFORGE_ENV
+          value: "production"
+        - name: LOG_LEVEL
+          value: "INFO"
+        - name: POSTGRES_HOST
+          value: "postgres-service"
+        - name: POSTGRES_PORT
+          value: "5432"
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secrets
+              key: database
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secrets
+              key: username
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secrets
+              key: password
+        - name: NEO4J_URI
+          value: "bolt://neo4j-service:7687"
+        - name: NEO4J_USER
+          valueFrom:
+            secretKeyRef:
+              name: neo4j-secrets
+              key: username
+        - name: NEO4J_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: neo4j-secrets
+              key: password
+        - name: ELASTICSEARCH_HOST
+          value: "elasticsearch-service:9200"
+        - name: EMBEDDING_MODEL
+          value: "all-MiniLM-L6-v2"
+        - name: PROMETHEUS_ENABLED
+          value: "true"
+        - name: OTEL_ENABLED
+          value: "true"
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://otel-collector:4317"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8003
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8003
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: neo4j
+  namespace: dataforge
+spec:
+  serviceName: neo4j-service
+  replicas: 1
+  selector:
+    matchLabels:
+      app: neo4j
+  template:
+    metadata:
+      labels:
+        app: neo4j
+    spec:
+      containers:
+      - name: neo4j
+        image: neo4j:5.14
+        ports:
+        - containerPort: 7474
+          name: http
+        - containerPort: 7687
+          name: bolt
+        env:
+        - name: NEO4J_AUTH
+          valueFrom:
+            secretKeyRef:
+              name: neo4j-secrets
+              key: auth
+        - name: NEO4J_dbms_memory_heap_max__size
+          value: "1G"
+        - name: NEO4J_dbms_memory_pagecache_size
+          value: "512M"
+        volumeMounts:
+        - name: neo4j-data
+          mountPath: /data
+        - name: neo4j-logs
+          mountPath: /logs
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "500m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+  volumeClaimTemplates:
+  - metadata:
+      name: neo4j-data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 20Gi
+  - metadata:
+      name: neo4j-logs
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 5Gi

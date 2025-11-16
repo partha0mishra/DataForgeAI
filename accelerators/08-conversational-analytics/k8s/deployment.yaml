@@ -1,0 +1,164 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dataforge-conversational
+  labels:
+    app: dataforge-conversational
+    component: accelerator
+    accelerator: "08"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: dataforge-conversational
+  template:
+    metadata:
+      labels:
+        app: dataforge-conversational
+        component: accelerator
+        accelerator: "08"
+    spec:
+      containers:
+      - name: conversational-api
+        image: dataforge/conversational:latest
+        ports:
+        - containerPort: 8008
+          name: http
+          protocol: TCP
+        env:
+        - name: API_HOST
+          value: "0.0.0.0"
+        - name: API_PORT
+          value: "8008"
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: dataforge-secrets
+              key: openai-api-key
+        - name: OPENAI_MODEL
+          value: "gpt-4"
+        - name: LOG_LEVEL
+          value: "INFO"
+        # Database connection (example)
+        - name: DB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: database-secrets
+              key: host
+              optional: true
+        - name: DB_PORT
+          valueFrom:
+            secretKeyRef:
+              name: database-secrets
+              key: port
+              optional: true
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: database-secrets
+              key: database
+              optional: true
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: database-secrets
+              key: username
+              optional: true
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: database-secrets
+              key: password
+              optional: true
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8008
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8008
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        volumeMounts:
+        - name: config
+          mountPath: /app/config
+          readOnly: true
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: config
+        configMap:
+          name: dataforge-conversational-config
+          optional: true
+      - name: tmp
+        emptyDir: {}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dataforge-conversational-config
+  labels:
+    app: dataforge-conversational
+data:
+  config.yaml: |
+    query_processing:
+      confidence_threshold: 0.5
+      enable_caching: true
+
+    sql_generation:
+      temperature: 0.1
+      max_retries: 3
+      timeout_seconds: 30
+
+    query_execution:
+      max_rows: 10000
+      timeout_seconds: 60
+      connection_pool_size: 10
+
+    sessions:
+      max_history: 100
+      session_timeout_minutes: 60
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dataforge-secrets
+  labels:
+    app: dataforge-conversational
+type: Opaque
+stringData:
+  # Set your OpenAI API key here or create secret separately
+  # openai-api-key: "your-api-key-here"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: database-secrets
+  labels:
+    app: dataforge-conversational
+type: Opaque
+stringData:
+  # Database connection details (optional)
+  # host: "postgres.default.svc.cluster.local"
+  # port: "5432"
+  # database: "analytics"
+  # username: "analytics_user"
+  # password: "your-password-here"

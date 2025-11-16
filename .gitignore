@@ -205,3 +205,103 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# ============================================
+# DataForge AI Platform Specific
+# ============================================
+
+# Airflow
+airflow.db
+airflow.cfg
+airflow-webserver.pid
+airflow_home/
+
+# DBT
+dbt_modules/
+dbt_packages/
+
+# MLflow
+mlruns/
+mlartifacts/
+
+# Spark
+metastore_db/
+derby.log
+spark-warehouse/
+
+# Data files
+*.csv
+*.parquet
+*.json.gz
+*.xml
+*.xlsx
+*.xls
+data/
+datasets/
+raw_data/
+
+# Secrets and credentials
+*.pem
+*.key
+*.crt
+secrets/
+credentials.json
+service-account.json
+
+# Docker
+docker-compose.override.yml
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+.terraform.lock.hcl
+
+# Kubernetes
+*.kubeconfig
+k8s-secrets.yaml
+
+# Logs
+logs/
+*.log
+
+# Node (for frontend components)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# OS specific
+Thumbs.db
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Great Expectations
+uncommitted/
+.ge_store_backend_id
+
+# Vector databases
+milvus_data/
+*.index
+
+# Model artifacts
+models/
+checkpoints/
+
+# Jupyter extended
+*.ipynb
+.ipynb_checkpoints/

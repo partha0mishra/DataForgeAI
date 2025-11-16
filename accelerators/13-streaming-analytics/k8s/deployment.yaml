@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dataforge-streaming-analytics
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: dataforge-streaming-analytics
+  template:
+    metadata:
+      labels:
+        app: dataforge-streaming-analytics
+    spec:
+      containers:
+      - name: streaming-api
+        image: dataforge/streaming-analytics:latest
+        ports:
+        - containerPort: 8013
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dataforge-streaming-analytics
+spec:
+  ports:
+  - port: 8013
+    targetPort: 8013
+  selector:
+    app: dataforge-streaming-analytics
