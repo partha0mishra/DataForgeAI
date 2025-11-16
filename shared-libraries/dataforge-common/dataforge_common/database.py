@@ -106,6 +106,20 @@ def get_database() -> Optional[DatabaseManager]:
     return _db_manager
 
 
+def get_database_manager() -> DatabaseManager:
+    """Get global database manager (raises if not initialized).
+
+    Returns:
+        Database manager instance
+
+    Raises:
+        RuntimeError: If database not initialized
+    """
+    if not _db_manager:
+        raise RuntimeError("Database not initialized. Call init_database() first.")
+    return _db_manager
+
+
 @contextmanager
 def get_db_session():
     """Get database session from global manager.

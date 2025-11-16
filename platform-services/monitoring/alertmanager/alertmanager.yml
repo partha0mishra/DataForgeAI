@@ -1,0 +1,109 @@
+global:
+  resolve_timeout: 5m
+  # Slack webhook (configure in production)
+  # slack_api_url: 'YOUR_SLACK_WEBHOOK_URL'
+
+# Route tree for alert dispatching
+route:
+  receiver: 'default'
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 12h
+
+  routes:
+    # Critical alerts go to PagerDuty/Slack immediately
+    - match:
+        severity: critical
+      receiver: 'critical'
+      group_wait: 5s
+      repeat_interval: 1h
+
+    # Warning alerts grouped and sent to team channel
+    - match:
+        severity: warning
+      receiver: 'warning'
+      group_wait: 30s
+      repeat_interval: 4h
+
+    # Security alerts
+    - match:
+        component: security
+      receiver: 'security'
+      group_wait: 5s
+      repeat_interval: 1h
+
+receivers:
+  - name: 'default'
+    webhook_configs:
+      - url: 'http://localhost:5001/alerts'
+        send_resolved: true
+
+  - name: 'critical'
+    # PagerDuty integration (configure in production)
+    # pagerduty_configs:
+    #   - service_key: 'YOUR_PAGERDUTY_SERVICE_KEY'
+    #     description: '{{ .CommonAnnotations.summary }}'
+
+    # Slack for critical alerts
+    # slack_configs:
+    #   - channel: '#dataforge-critical'
+    #     title: 'CRITICAL: {{ .GroupLabels.alertname }}'
+    #     text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+
+    # Email for critical alerts
+    email_configs:
+      - to: 'ops-team@dataforge.ai'
+        from: 'alertmanager@dataforge.ai'
+        smarthost: 'smtp.gmail.com:587'
+        auth_username: 'alertmanager@dataforge.ai'
+        auth_password: '${SMTP_PASSWORD}'
+        headers:
+          Subject: '[CRITICAL] DataForge Alert: {{ .GroupLabels.alertname }}'
+
+  - name: 'warning'
+    # Slack for warnings
+    # slack_configs:
+    #   - channel: '#dataforge-alerts'
+    #     title: 'WARNING: {{ .GroupLabels.alertname }}'
+    #     text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+
+    email_configs:
+      - to: 'team@dataforge.ai'
+        from: 'alertmanager@dataforge.ai'
+        smarthost: 'smtp.gmail.com:587'
+        auth_username: 'alertmanager@dataforge.ai'
+        auth_password: '${SMTP_PASSWORD}'
+
+  - name: 'security'
+    # Dedicated channel for security alerts
+    # slack_configs:
+    #   - channel: '#dataforge-security'
+    #     title: 'SECURITY ALERT: {{ .GroupLabels.alertname }}'
+    #     text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+
+    email_configs:
+      - to: 'security@dataforge.ai'
+        from: 'alertmanager@dataforge.ai'
+        smarthost: 'smtp.gmail.com:587'
+        auth_username: 'alertmanager@dataforge.ai'
+        auth_password: '${SMTP_PASSWORD}'
+        headers:
+          Subject: '[SECURITY] DataForge Alert: {{ .GroupLabels.alertname }}'
+
+# Inhibition rules to mute certain alerts when others are firing
+inhibit_rules:
+  # Mute warning if critical alert is firing for same instance
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'instance']
+
+  # Mute individual service alerts if the whole cluster is down
+  - source_match:
+      alertname: 'ServiceDown'
+      job: 'dataforge-cluster'
+    target_match_re:
+      alertname: '.*'
+    equal: ['cluster']

@@ -129,18 +129,92 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
 
+  # Kafka Schema Registry
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.5.0
+    container_name: dataforge-schema-registry
+    depends_on:
+      - kafka
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:29092
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+
+  # Jaeger - Distributed Tracing
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: dataforge-jaeger
+    environment:
+      - COLLECTOR_ZIPKIN_HOST_PORT=:9411
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      - "5775:5775/udp"    # agent zipkin.thrift compact
+      - "6831:6831/udp"    # agent jaeger.thrift compact
+      - "6832:6832/udp"    # agent jaeger.thrift binary
+      - "5778:5778"        # agent configs
+      - "16686:16686"      # frontend
+      - "14250:14250"      # model.proto
+      - "14268:14268"      # jaeger.thrift
+      - "14269:14269"      # admin port
+      - "4317:4317"        # OTLP gRPC
+      - "4318:4318"        # OTLP HTTP
+      - "9411:9411"        # zipkin
+    volumes:
+      - jaeger-data:/tmp
+
+  # Loki - Log Aggregation
+  loki:
+    image: grafana/loki:latest
+    container_name: dataforge-loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - loki-data:/loki
+
+  # Promtail - Log Collector for Loki
+  promtail:
+    image: grafana/promtail:latest
+    container_name: dataforge-promtail
+    depends_on:
+      - loki
+    volumes:
+      - /var/log:/var/log:ro
+      - airflow-logs:/var/log/airflow:ro
+      - ../../platform-services/monitoring/promtail/promtail-config.yml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
+
   # Prometheus - Metrics collection
   prometheus:
     image: prom/prometheus:latest
     container_name: dataforge-prometheus
     volumes:
       - ../../platform-services/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ../../platform-services/monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml
       - prometheus-data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
     ports:
       - "9090:9090"
+
+  # AlertManager - Alert Management
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: dataforge-alertmanager
+    depends_on:
+      - prometheus
+    volumes:
+      - ../../platform-services/monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+      - alertmanager-data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+    ports:
+      - "9093:9093"
 
   # Grafana - Metrics visualization
   grafana:
@@ -148,12 +222,16 @@ services:
     container_name: dataforge-grafana
     depends_on:
       - prometheus
+      - loki
+      - jaeger
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_FEATURE_TOGGLES_ENABLE=traceqlEditor
     volumes:
       - ../../platform-services/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ../../platform-services/monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
       - grafana-data:/var/lib/grafana
     ports:
       - "3001:3000"
@@ -197,7 +275,10 @@ volumes:
   postgres-data:
   airflow-logs:
   prometheus-data:
+  alertmanager-data:
   grafana-data:
+  jaeger-data:
+  loki-data:
 
 networks:
   default:

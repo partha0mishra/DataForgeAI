@@ -39,6 +39,10 @@ class Cache:
         """Increment counter."""
         raise NotImplementedError
 
+    def ttl(self, key: str) -> Optional[int]:
+        """Get time-to-live for key in seconds."""
+        raise NotImplementedError
+
     def get_many(self, keys: list[str]) -> dict[str, Any]:
         """Get multiple values."""
         return {key: self.get(key) for key in keys}
@@ -101,6 +105,16 @@ class InMemoryCache(Cache):
         new_value = current + amount
         self.set(key, new_value)
         return new_value
+
+    def ttl(self, key: str) -> Optional[int]:
+        """Get time-to-live for key in seconds."""
+        if key not in self._cache:
+            return None
+        _, expires_at = self._cache[key]
+        if not expires_at:
+            return None
+        remaining = (expires_at - datetime.utcnow()).total_seconds()
+        return int(remaining) if remaining > 0 else 0
 
 
 class RedisCache(Cache):
@@ -241,6 +255,16 @@ class RedisCache(Cache):
         except Exception as e:
             logger.error(f"Redis set_many error: {e}")
             return False
+
+    def ttl(self, key: str) -> Optional[int]:
+        """Get time-to-live for key in seconds."""
+        try:
+            result = self.redis.ttl(self._make_key(key))
+            # Redis returns -2 if key doesn't exist, -1 if no expiry
+            return result if result > 0 else None
+        except Exception as e:
+            logger.error(f"Redis ttl error for key {key}: {e}")
+            return None
 
 
 # Global cache instance
