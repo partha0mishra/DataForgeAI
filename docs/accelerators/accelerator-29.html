@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accelerator 29: Geospatial & Time-Series Analytics | DataForge AI</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f7fa;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+        }
+        .header h1 { font-size: 2.5em; margin-bottom: 10px; }
+        .header .subtitle { font-size: 1.2em; opacity: 0.9; }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        .nav {
+            background: white;
+            padding: 15px 20px;
+            margin-bottom: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .nav a {
+            color: #667eea;
+            text-decoration: none;
+            margin-right: 20px;
+            font-weight: 500;
+        }
+        .nav a:hover { text-decoration: underline; }
+        .section {
+            background: white;
+            padding: 30px;
+            margin-bottom: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .section h2 {
+            color: #1e3c72;
+            font-size: 2em;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+        .section h3 {
+            color: #2a5298;
+            font-size: 1.5em;
+            margin: 25px 0 15px 0;
+        }
+        .section p {
+            color: #555;
+            margin-bottom: 15px;
+            line-height: 1.8;
+        }
+        ul {
+            margin: 15px 0 15px 30px;
+        }
+        ul li {
+            margin-bottom: 10px;
+            color: #555;
+            line-height: 1.6;
+        }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .benefit-box {
+            background: #e8f5e9;
+            padding: 20px;
+            border-radius: 6px;
+            border-left: 4px solid #10b981;
+            margin: 15px 0;
+        }
+        .code-block {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 20px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            margin: 15px 0;
+        }
+        .badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin: 5px 5px 5px 0;
+            background: #e7f3ff;
+            color: #0066cc;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Accelerator 29</h1>
+        <p class="subtitle">Geospatial & Time-Series Analytics</p>
+        <p>Location intelligence and temporal forecasting</p>
+    </div>
+
+    <div class="container">
+        <div class="nav">
+            <a href="../index.html">← Back to Overview</a>
+            <a href="#overview">Overview</a>
+            <a href="#functionality">Functionality</a>
+            <a href="#benefits">Benefits</a>
+            <a href="#deployment">Deployment</a>
+        </div>
+
+        <div class="section">
+            <span class="badge">60+ API Endpoints</span>
+            <span class="badge">Port 8029</span>
+            <span class="badge">Production Ready</span>
+        </div>
+
+        <div id="overview" class="section">
+            <h2>Overview</h2>
+            <p>Comprehensive geospatial and time-series analytics with H3/S2 indexing, routing optimization, and advanced forecasting. Combines spatial operations with temporal analysis for powerful location-based insights.</p>
+        </div>
+
+        <div id="functionality" class="section">
+            <h2>Key Functionalities</h2>
+            <ul>
+                <li>Geocoding and reverse geocoding</li>
+                <li>Spatial operations (proximity, buffers, intersections, distance)</li>
+                <li>H3, S2, and GeoHash spatial indexing</li>
+                <li>Routing and optimization (shortest path, TSP/VRP, isochrones)</li>
+                <li>Heatmaps and spatial clustering (DBSCAN, K-means, HDBSCAN)</li>
+                <li>Time-series forecasting (Prophet, ARIMA, SARIMA, LSTM)</li>
+                <li>Anomaly detection (Z-score, isolation forest, autoencoder)</li>
+                <li>Trajectory analysis and event detection</li>
+            </ul>
+        </div>
+
+        <div id="benefits" class="section">
+            <h2>Business Benefits</h2>
+            <div class="benefit-box">
+                <p><strong>✓</strong> Enable location-based decision making</p>
+                <p><strong>✓</strong> Optimize logistics and delivery routes</p>
+                <p><strong>✓</strong> Predict future trends with high accuracy</p>
+                <p><strong>✓</strong> Detect spatial and temporal anomalies</p>
+                <p><strong>✓</strong> Analyze customer movement patterns</p>
+                <p><strong>✓</strong> Support real estate and urban planning</p>
+            </div>
+        </div>
+
+        <div id="deployment" class="section">
+            <h2>Quick Start</h2>
+            <h3>Docker Deployment</h3>
+            <div class="code-block">
+# Build and run
+docker build -t accelerator-29 accelerators/29-*/
+docker run -d -p 8029:8029 accelerator-29
+
+# Verify
+curl http://localhost:8029/health
+            </div>
+
+            <h3>Local Development</h3>
+            <div class="code-block">
+cd accelerators/29-*/
+pip install -r requirements.txt
+uvicorn src.main:app --host 0.0.0.0 --port 8029
+            </div>
+
+            <h3>Technology Stack</h3>
+            <ul>
+                <li>FastAPI 0.109.0 - High-performance API framework</li>
+                <li>SQLAlchemy 2.0.25 - Database ORM</li>
+                <li>Pydantic 2.5.3 - Data validation</li>
+                <li>GeoPandas 0.14.2, H3 3.7.6, Prophet 1.1.5</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>API Documentation</h2>
+            <p>Interactive API documentation available at:</p>
+            <div class="code-block">http://localhost:8029/docs</div>
+        </div>
+    </div>
+
+    <div style="background: #1e3c72; color: white; padding: 30px; text-align: center; margin-top: 40px;">
+        <p>© 2025 DataForge AI | Accelerator 29: Geospatial & Time-Series Analytics</p>
+        <p style="margin-top: 10px;"><a href="../index.html" style="color: white;">← Back to All Accelerators</a></p>
+    </div>
+</body>
+</html>

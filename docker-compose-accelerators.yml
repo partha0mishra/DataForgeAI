@@ -1,0 +1,107 @@
+version: '3.8'
+
+services:
+  # Accelerators 27-32 Services
+
+  accelerator-27-sharing:
+    build:
+      context: ./accelerators/27-data-sharing-collaboration
+      dockerfile: Dockerfile
+    ports:
+      - "8027:8027"
+    environment:
+      - DATABASE_URL=sqlite:///./app.db
+      - LOG_LEVEL=info
+    volumes:
+      - ./accelerators/27-data-sharing-collaboration/data:/app/data
+    restart: unless-stopped
+    networks:
+      - dataforge-network
+
+  accelerator-28-graph:
+    build:
+      context: ./accelerators/28-graph-analytics-knowledge-graphs
+      dockerfile: Dockerfile
+    ports:
+      - "8028:8028"
+    environment:
+      - DATABASE_URL=sqlite:///./app.db
+      - LOG_LEVEL=info
+    volumes:
+      - ./accelerators/28-graph-analytics-knowledge-graphs/data:/app/data
+    restart: unless-stopped
+    networks:
+      - dataforge-network
+
+  accelerator-29-geospatial:
+    build:
+      context: ./accelerators/29-geospatial-timeseries-analytics
+      dockerfile: Dockerfile
+    ports:
+      - "8029:8029"
+    environment:
+      - DATABASE_URL=sqlite:///./app.db
+      - LOG_LEVEL=info
+    volumes:
+      - ./accelerators/29-geospatial-timeseries-analytics/data:/app/data
+    restart: unless-stopped
+    networks:
+      - dataforge-network
+
+  accelerator-30-synthetic:
+    build:
+      context: ./accelerators/30-synthetic-data-generation
+      dockerfile: Dockerfile
+    ports:
+      - "8030:8030"
+    environment:
+      - DATABASE_URL=sqlite:///./app.db
+      - LOG_LEVEL=info
+    volumes:
+      - ./accelerators/30-synthetic-data-generation/data:/app/data
+    restart: unless-stopped
+    networks:
+      - dataforge-network
+
+  accelerator-31-aiops:
+    build:
+      context: ./accelerators/31-aiops-intelligent-observability
+      dockerfile: Dockerfile
+    ports:
+      - "8031:8031"
+    environment:
+      - DATABASE_URL=sqlite:///./app.db
+      - LOG_LEVEL=info
+    volumes:
+      - ./accelerators/31-aiops-intelligent-observability/data:/app/data
+    restart: unless-stopped
+    networks:
+      - dataforge-network
+
+  accelerator-32-dr:
+    build:
+      context: ./accelerators/32-disaster-recovery-multi-region
+      dockerfile: Dockerfile
+    ports:
+      - "8032:8032"
+    environment:
+      - DATABASE_URL=sqlite:///./app.db
+      - LOG_LEVEL=info
+      - AWS_REGION=us-east-1
+    volumes:
+      - ./accelerators/32-disaster-recovery-multi-region/data:/app/data
+    restart: unless-stopped
+    networks:
+      - dataforge-network
+
+networks:
+  dataforge-network:
+    driver: bridge
+
+volumes:
+  acc27-data:
+  acc28-data:
+  acc29-data:
+  acc30-data:
+  acc31-data:
+  acc32-data:

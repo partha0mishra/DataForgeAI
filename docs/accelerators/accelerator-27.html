@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accelerator 27: Data Sharing & Collaboration | DataForge AI</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f7fa;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+        }
+        .header h1 { font-size: 2.5em; margin-bottom: 10px; }
+        .header .subtitle { font-size: 1.2em; opacity: 0.9; }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        .nav {
+            background: white;
+            padding: 15px 20px;
+            margin-bottom: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .nav a {
+            color: #667eea;
+            text-decoration: none;
+            margin-right: 20px;
+            font-weight: 500;
+        }
+        .nav a:hover { text-decoration: underline; }
+        .section {
+            background: white;
+            padding: 30px;
+            margin-bottom: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .section h2 {
+            color: #1e3c72;
+            font-size: 2em;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+        .section h3 {
+            color: #2a5298;
+            font-size: 1.5em;
+            margin: 25px 0 15px 0;
+        }
+        .section h4 {
+            color: #667eea;
+            font-size: 1.2em;
+            margin: 20px 0 10px 0;
+        }
+        .section p {
+            color: #555;
+            margin-bottom: 15px;
+            line-height: 1.8;
+        }
+        ul {
+            margin: 15px 0 15px 30px;
+        }
+        ul li {
+            margin-bottom: 10px;
+            color: #555;
+            line-height: 1.6;
+        }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .feature-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 6px;
+            border-left: 4px solid #667eea;
+        }
+        .feature-card h4 {
+            margin-top: 0;
+        }
+        .benefit-box {
+            background: #e8f5e9;
+            padding: 20px;
+            border-radius: 6px;
+            border-left: 4px solid #10b981;
+            margin: 15px 0;
+        }
+        .code-block {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 20px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            margin: 15px 0;
+        }
+        .architecture-diagram {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 8px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th {
+            background: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: left;
+        }
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        tr:hover {
+            background: #f8f9fa;
+        }
+        .badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin: 5px 5px 5px 0;
+        }
+        .badge-blue { background: #e7f3ff; color: #0066cc; }
+        .badge-green { background: #e8f5e9; color: #2e7d32; }
+        .badge-purple { background: #f3e5f5; color: #7b1fa2; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Accelerator 27</h1>
+        <p class="subtitle">Data Sharing & Collaboration</p>
+    </div>
+
+    <div class="container">
+        <div class="nav">
+            <a href="../index.html">← Back to Overview</a>
+            <a href="#overview">Overview</a>
+            <a href="#functionality">Functionality</a>
+            <a href="#benefits">Benefits</a>
+            <a href="#architecture">Architecture</a>
+            <a href="#deployment">Deployment</a>
+            <a href="#api">API Reference</a>
+        </div>
+
+        <div id="overview" class="section">
+            <h2>Overview</h2>
+            <p>The Data Sharing & Collaboration accelerator enables secure, governed data exchange between organizations through formal sharing agreements. It provides a comprehensive framework for managing data assets, tracking usage, and ensuring compliance with legal and business requirements.</p>
+
+            <p>This accelerator is essential for organizations that need to:</p>
+            <ul>
+                <li>Share data with partners, suppliers, or customers</li>
+                <li>Monetize data assets through controlled access</li>
+                <li>Collaborate on joint analytics initiatives</li>
+                <li>Maintain compliance with data sharing regulations</li>
+                <li>Track and audit all data sharing activities</li>
+            </ul>
+
+            <div class="benefit-box">
+                <h4>Key Value Proposition</h4>
+                <p>Accelerate partner integrations by 60%, ensure compliance in all data sharing scenarios, and unlock new revenue streams through safe data monetization.</p>
+            </div>
+        </div>
+
+        <div id="functionality" class="section">
+            <h2>Detailed Functionality</h2>
+
+            <h3>1. Sharing Agreement Management</h3>
+            <p>Create, manage, and enforce formal data sharing agreements between organizations:</p>
+            <ul>
+                <li><strong>Agreement Creation:</strong> Define provider and consumer organizations, data assets included, and sharing terms</li>
+                <li><strong>Terms & Conditions:</strong> Specify usage restrictions, duration, confidentiality levels, and compliance requirements</li>
+                <li><strong>Lifecycle Management:</strong> Activate, suspend, renew, or terminate agreements based on business needs</li>
+                <li><strong>Version Control:</strong> Track agreement changes and maintain historical records</li>
+                <li><strong>Approval Workflows:</strong> Route agreements through approval chains with digital signatures</li>
+            </ul>
+
+            <h3>2. Data Asset Tracking</h3>
+            <p>Comprehensive tracking of all data assets included in sharing agreements:</p>
+            <ul>
+                <li><strong>Asset Registry:</strong> Catalog all shareable data assets with metadata</li>
+                <li><strong>Usage Monitoring:</strong> Track who accesses what data and when</li>
+                <li><strong>Access Patterns:</strong> Analyze data consumption patterns and trends</li>
+                <li><strong>Quota Management:</strong> Enforce usage limits and rate limiting</li>
+                <li><strong>Audit Trail:</strong> Complete audit logs for compliance and investigation</li>
+            </ul>
+
+            <h3>3. Access Control & Permissions</h3>
+            <p>Fine-grained access control for shared data assets:</p>
+            <ul>
+                <li><strong>Role-Based Access:</strong> Define roles and permissions per agreement</li>
+                <li><strong>Attribute-Based Control:</strong> Dynamic access based on user/data attributes</li>
+                <li><strong>Row/Column Level Security:</strong> Control access at granular data levels</li>
+                <li><strong>Time-Based Access:</strong> Schedule access windows and expiration</li>
+                <li><strong>IP Whitelisting:</strong> Restrict access to specific networks</li>
+            </ul>
+
+            <h3>4. Compliance & Governance</h3>
+            <p>Ensure all data sharing complies with regulations and policies:</p>
+            <ul>
+                <li><strong>Regulatory Compliance:</strong> GDPR, CCPA, HIPAA compliance checks</li>
+                <li><strong>Data Classification:</strong> Ensure only appropriate data is shared</li>
+                <li><strong>PII Protection:</strong> Automatic detection and masking of sensitive data</li>
+                <li><strong>Compliance Reporting:</strong> Generate audit reports for regulators</li>
+                <li><strong>Violation Detection:</strong> Alert on potential compliance breaches</li>
+            </ul>
+
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h4>🤝 Agreement Templates</h4>
+                    <p>Pre-built templates for common sharing scenarios (partner data exchange, customer analytics, supplier collaboration)</p>
+                </div>
+                <div class="feature-card">
+                    <h4>📊 Analytics Dashboard</h4>
+                    <p>Real-time visibility into all active agreements, usage metrics, and compliance status</p>
+                </div>
+                <div class="feature-card">
+                    <h4>🔔 Notifications</h4>
+                    <p>Automated alerts for agreement expiration, usage thresholds, and compliance issues</p>
+                </div>
+                <div class="feature-card">
+                    <h4>🔐 Encryption</h4>
+                    <p>End-to-end encryption for all data in transit and at rest</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="benefits" class="section">
+            <h2>Business Benefits</h2>
+
+            <div class="feature-grid">
+                <div class="benefit-box">
+                    <h4>📈 Revenue Generation</h4>
+                    <p>Monetize data assets by creating controlled access programs. Organizations using data monetization strategies report 15-20% new revenue streams.</p>
+                </div>
+                <div class="benefit-box">
+                    <h4>⚡ Faster Partnerships</h4>
+                    <p>Reduce partner onboarding time from months to days with standardized sharing agreements and automated provisioning.</p>
+                </div>
+                <div class="benefit-box">
+                    <h4>🛡️ Risk Mitigation</h4>
+                    <p>Minimize legal and compliance risks through automated policy enforcement and comprehensive audit trails.</p>
+                </div>
+                <div class="benefit-box">
+                    <h4>🎯 Better Collaboration</h4>
+                    <p>Enable joint analytics initiatives with partners while maintaining data sovereignty and control.</p>
+                </div>
+            </div>
+
+            <h3>ROI Metrics</h3>
+            <ul>
+                <li><strong>60% faster</strong> partner integrations</li>
+                <li><strong>80% reduction</strong> in manual agreement management</li>
+                <li><strong>100% compliance</strong> with data sharing regulations</li>
+                <li><strong>15-20% new revenue</strong> from data monetization</li>
+                <li><strong>90% reduction</strong> in compliance incidents</li>
+            </ul>
+        </div>
+
+        <div id="architecture" class="section">
+            <h2>Technical Architecture</h2>
+
+            <h3>System Components</h3>
+            <div class="architecture-diagram">
+                <pre style="text-align: left; display: inline-block;">
+┌─────────────────────────────────────────────────────────┐
+│                  API Layer (FastAPI)                     │
+│  ┌────────────┐  ┌────────────┐  ┌──────────────┐      │
+│  │ Agreements │  │   Assets   │  │ Compliance   │      │
+│  │ Management │  │  Tracking  │  │   Checks     │      │
+│  └────────────┘  └────────────┘  └──────────────┘      │
+└─────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────┐
+│              Service Layer (Business Logic)              │
+│  ┌────────────┐  ┌────────────┐  ┌──────────────┐      │
+│  │  Sharing   │  │   Access   │  │    Audit     │      │
+│  │  Service   │  │  Control   │  │   Service    │      │
+│  └────────────┘  └────────────┘  └──────────────┘      │
+└─────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────┐
+│           Data Layer (SQLAlchemy ORM)                    │
+│  ┌────────────┐  ┌────────────┐  ┌──────────────┐      │
+│  │  Sharing   │  │   Access   │  │    Audit     │      │
+│  │ Agreement  │  │    Log     │  │     Log      │      │
+│  └────────────┘  └────────────┘  └──────────────┘      │
+└─────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────┐
+│              PostgreSQL / SQLite Database                │
+└─────────────────────────────────────────────────────────┘
+                </pre>
+            </div>
+
+            <h3>Database Schema</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Table</th>
+                        <th>Description</th>
+                        <th>Key Fields</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>sharing_agreements</strong></td>
+                        <td>Core agreement records</td>
+                        <td>agreement_id, provider_org, consumer_org, data_assets[], terms{}, active, created_at</td>
+                    </tr>
+                    <tr>
+                        <td><strong>access_logs</strong></td>
+                        <td>Data access tracking</td>
+                        <td>log_id, agreement_id, user_id, asset_id, timestamp, action</td>
+                    </tr>
+                    <tr>
+                        <td><strong>compliance_checks</strong></td>
+                        <td>Compliance validations</td>
+                        <td>check_id, agreement_id, check_type, status, details, timestamp</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Technology Stack</h3>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h4>Backend Framework</h4>
+                    <p><strong>FastAPI 0.109.0</strong> - High-performance async API framework</p>
+                </div>
+                <div class="feature-card">
+                    <h4>ORM</h4>
+                    <p><strong>SQLAlchemy 2.0.25</strong> - Database abstraction and modeling</p>
+                </div>
+                <div class="feature-card">
+                    <h4>Validation</h4>
+                    <p><strong>Pydantic 2.5.3</strong> - Data validation and serialization</p>
+                </div>
+                <div class="feature-card">
+                    <h4>Server</h4>
+                    <p><strong>Uvicorn 0.27.0</strong> - ASGI server for production</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="deployment" class="section">
+            <h2>Deployment Guide</h2>
+
+            <h3>Prerequisites</h3>
+            <ul>
+                <li>Docker 20.10+ and Docker Compose 2.0+</li>
+                <li>Python 3.11+ (for local development)</li>
+                <li>PostgreSQL 13+ (for production) or SQLite (for development)</li>
+                <li>4GB RAM minimum, 8GB recommended</li>
+            </ul>
+
+            <h3>Quick Start with Docker</h3>
+            <div class="code-block">
+# Build the Docker image
+docker build -t dataforge-sharing:latest accelerators/27-data-sharing-collaboration/
+
+# Run the container
+docker run -d \\
+  --name sharing-service \\
+  -p 8027:8027 \\
+  -e DATABASE_URL=sqlite:///./app.db \\
+  -e LOG_LEVEL=info \\
+  dataforge-sharing:latest
+
+# Verify the service is running
+curl http://localhost:8027/health
+            </div>
+
+            <h3>Docker Compose Deployment</h3>
+            <div class="code-block">
+# Using the provided docker-compose file
+docker-compose -f docker-compose-accelerators.yml up -d accelerator-27-sharing
+
+# View logs
+docker-compose -f docker-compose-accelerators.yml logs -f accelerator-27-sharing
+
+# Stop the service
+docker-compose -f docker-compose-accelerators.yml down
+            </div>
+
+            <h3>Local Development Setup</h3>
+            <div class="code-block">
+# Navigate to accelerator directory
+cd accelerators/27-data-sharing-collaboration/
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\\Scripts\\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Run the application
+uvicorn src.main:app --host 0.0.0.0 --port 8027 --reload
+
+# Access the API documentation
+open http://localhost:8027/docs
+            </div>
+
+            <h3>Production Deployment</h3>
+            <div class="code-block">
+# Set environment variables
+export DATABASE_URL="postgresql://user:pass@host:5432/dataforge"
+export LOG_LEVEL="info"
+export WORKERS=4
+
+# Run with Gunicorn for production
+gunicorn src.main:app \\
+  --workers $WORKERS \\
+  --worker-class uvicorn.workers.UvicornWorker \\
+  --bind 0.0.0.0:8027 \\
+  --access-logfile - \\
+  --error-logfile -
+            </div>
+
+            <h3>Configuration Options</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Variable</th>
+                        <th>Description</th>
+                        <th>Default</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>DATABASE_URL</td>
+                        <td>Database connection string</td>
+                        <td>sqlite:///./app.db</td>
+                    </tr>
+                    <tr>
+                        <td>LOG_LEVEL</td>
+                        <td>Logging verbosity</td>
+                        <td>info</td>
+                    </tr>
+                    <tr>
+                        <td>API_PREFIX</td>
+                        <td>API route prefix</td>
+                        <td>/api/v1</td>
+                    </tr>
+                    <tr>
+                        <td>CORS_ORIGINS</td>
+                        <td>Allowed CORS origins</td>
+                        <td>*</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div id="api" class="section">
+            <h2>API Reference</h2>
+
+            <h3>Create Sharing Agreement</h3>
+            <div class="code-block">
+POST /api/v1/agreements
+Content-Type: application/json
+
+{
+  "provider_org": "Acme Corporation",
+  "consumer_org": "Analytics Partners Inc",
+  "data_assets": ["customer_demographics", "sales_transactions"],
+  "terms": {
+    "duration_days": 365,
+    "purpose": "Market analysis and reporting",
+    "confidentiality": "high",
+    "allowed_uses": ["analytics", "reporting"],
+    "restrictions": ["no_resale", "no_public_disclosure"]
+  }
+}
+
+Response (201 Created):
+{
+  "agreement_id": "agr_8x7y9z",
+  "provider_org": "Acme Corporation",
+  "consumer_org": "Analytics Partners Inc",
+  "data_assets": ["customer_demographics", "sales_transactions"],
+  "active": true,
+  "created_at": "2025-11-17T10:30:00Z"
+}
+            </div>
+
+            <h3>Get Agreement Details</h3>
+            <div class="code-block">
+GET /api/v1/agreements/{agreement_id}
+
+Response (200 OK):
+{
+  "agreement_id": "agr_8x7y9z",
+  "provider_org": "Acme Corporation",
+  "consumer_org": "Analytics Partners Inc",
+  "data_assets": ["customer_demographics", "sales_transactions"],
+  "terms": {...},
+  "active": true,
+  "created_at": "2025-11-17T10:30:00Z",
+  "access_count": 1234,
+  "last_accessed": "2025-11-17T14:22:00Z"
+}
+            </div>
+
+            <h3>Deactivate Agreement</h3>
+            <div class="code-block">
+DELETE /api/v1/agreements/{agreement_id}
+
+Response (200 OK):
+{
+  "agreement_id": "agr_8x7y9z",
+  "active": false,
+  "deactivated_at": "2025-11-17T15:00:00Z",
+  "message": "Agreement successfully deactivated"
+}
+            </div>
+
+            <h3>Health Check</h3>
+            <div class="code-block">
+GET /health
+
+Response (200 OK):
+{
+  "status": "healthy",
+  "version": "1.0.0",
+  "timestamp": "2025-11-17T15:30:00Z"
+}
+            </div>
+
+            <h3>Interactive API Documentation</h3>
+            <p>Access the auto-generated Swagger UI documentation at:</p>
+            <div class="code-block">
+http://localhost:8027/docs
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Testing</h2>
+
+            <h3>Run Unit Tests</h3>
+            <div class="code-block">
+# Run all tests
+pytest tests/ -v
+
+# Run with coverage
+pytest tests/ -v --cov=src --cov-report=html
+
+# Run specific test file
+pytest tests/test_sharing_service.py -v
+            </div>
+
+            <h3>Test Coverage</h3>
+            <p>The accelerator includes comprehensive unit tests covering:</p>
+            <ul>
+                <li>Agreement creation and lifecycle management</li>
+                <li>Access control and permissions</li>
+                <li>Compliance validation</li>
+                <li>Database operations</li>
+                <li>API endpoint functionality</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>Best Practices</h2>
+
+            <h3>Security Recommendations</h3>
+            <ul>
+                <li>Always use HTTPS in production environments</li>
+                <li>Implement rate limiting to prevent abuse</li>
+                <li>Rotate API keys and credentials regularly</li>
+                <li>Enable audit logging for all data access</li>
+                <li>Use row-level security for sensitive data</li>
+            </ul>
+
+            <h3>Performance Optimization</h3>
+            <ul>
+                <li>Index frequently queried fields (organization names, agreement IDs)</li>
+                <li>Use connection pooling for database connections</li>
+                <li>Implement caching for frequently accessed agreements</li>
+                <li>Monitor API response times and optimize slow queries</li>
+                <li>Scale horizontally with load balancers for high traffic</li>
+            </ul>
+
+            <h3>Compliance Considerations</h3>
+            <ul>
+                <li>Review agreements with legal team before activation</li>
+                <li>Maintain detailed audit trails for regulatory compliance</li>
+                <li>Implement data retention policies per regulations</li>
+                <li>Conduct regular compliance audits</li>
+                <li>Document all data sharing activities</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>Support & Resources</h2>
+            <ul>
+                <li><a href="../index.html">DataForge AI Platform Overview</a></li>
+                <li><a href="https://fastapi.tiangolo.com/">FastAPI Documentation</a></li>
+                <li><a href="https://docs.sqlalchemy.org/">SQLAlchemy Documentation</a></li>
+                <li>API Documentation: <code>http://localhost:8027/docs</code></li>
+            </ul>
+        </div>
+    </div>
+
+    <div style="background: #1e3c72; color: white; padding: 30px; text-align: center; margin-top: 40px;">
+        <p>© 2025 DataForge AI | Accelerator 27: Data Sharing & Collaboration</p>
+        <p style="margin-top: 10px; font-size: 0.9em; opacity: 0.8;">
+            <a href="../index.html" style="color: white;">← Back to All Accelerators</a>
+        </p>
+    </div>
+</body>
+</html>

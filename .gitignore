@@ -305,3 +305,5 @@ checkpoints/
 # Jupyter extended
 *.ipynb
 .ipynb_checkpoints/
+# Allow src/models/ directories in accelerators
+!accelerators/*/src/models/
