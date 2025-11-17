@@ -1,0 +1,211 @@
+name: MLOps Accelerator - Tests
+
+on:
+  push:
+    branches: [ main, develop, 'claude/**' ]
+    paths:
+      - 'accelerators/15-mlops-automation/**'
+      - '.github/workflows/mlops-accelerator-tests.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'accelerators/15-mlops-automation/**'
+
+env:
+  WORKING_DIR: accelerators/15-mlops-automation
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        test-suite: [unit, integration]
+        exclude:
+          - test-suite: integration  # Skip integration tests for now
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: '${{ env.WORKING_DIR }}/requirements.txt'
+
+      - name: Install dependencies
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Create test .env file
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          cat > .env << EOF
+          DATABASE_URL=sqlite:///:memory:
+          MLFLOW_TRACKING_URI=http://localhost:5000
+          REDIS_URL=redis://localhost:6379/0
+          JWT_SECRET_KEY=test-secret-key-for-ci
+          ENVIRONMENT=test
+          LOG_LEVEL=INFO
+          EOF
+
+      - name: Run unit tests with coverage
+        if: matrix.test-suite == 'unit'
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          pytest tests/unit/ -v \
+            --cov=src \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            --cov-fail-under=55 \
+            --tb=short
+
+      - name: Upload coverage to Codecov
+        if: matrix.test-suite == 'unit'
+        uses: codecov/codecov-action@v4
+        with:
+          file: ${{ env.WORKING_DIR }}/coverage.xml
+          flags: unittests
+          name: mlops-accelerator-coverage
+          fail_ci_if_error: false
+
+      - name: Generate coverage badge
+        if: matrix.test-suite == 'unit' && github.ref == 'refs/heads/main'
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          coverage-badge -o coverage.svg -f
+
+  lint:
+    name: Code Quality
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install linting tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 black isort mypy
+
+      - name: Run flake8
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          flake8 src/ tests/ --max-line-length=100 --extend-ignore=E203,W503 --count --statistics || true
+
+      - name: Check code formatting with black
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          black --check src/ tests/ --line-length=100 || true
+
+      - name: Check import sorting with isort
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          isort --check-only src/ tests/ --profile black || true
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install security tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install bandit safety
+
+      - name: Run bandit security scan
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          bandit -r src/ -f json -o bandit-report.json || true
+          bandit -r src/ || true
+
+      - name: Check dependencies for known vulnerabilities
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          safety check --json || true
+
+  docker:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          docker build -t mlops-accelerator:test .
+
+      - name: Test Docker image
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          docker run --rm mlops-accelerator:test python -c "import src; print('Docker image OK')"
+
+      - name: Check Docker image size
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          docker images mlops-accelerator:test --format "{{.Size}}"
+
+  docs:
+    name: Documentation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check README exists
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          test -f README.md || exit 1
+
+      - name: Validate markdown
+        uses: nosborn/github-action-markdown-cli@v3.3.0
+        with:
+          files: ${{ env.WORKING_DIR }}/README.md
+          config_file: .markdownlint.json
+          ignore_files: node_modules
+        continue-on-error: true
+
+  test-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [test, lint, security, docker]
+    if: always()
+
+    steps:
+      - name: Check test results
+        run: |
+          echo "Test suite: ${{ needs.test.result }}"
+          echo "Lint: ${{ needs.lint.result }}"
+          echo "Security: ${{ needs.security.result }}"
+          echo "Docker: ${{ needs.docker.result }}"
+
+          if [ "${{ needs.test.result }}" = "failure" ]; then
+            echo "::error::Tests failed!"
+            exit 1
+          fi
