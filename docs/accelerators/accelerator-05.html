@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accelerator 5: Data Lineage Tracking | DataForge AI</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f7fa;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+        }
+        .header h1 { font-size: 2.5em; margin-bottom: 10px; }
+        .header .subtitle { font-size: 1.2em; opacity: 0.9; }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        .nav {
+            background: white;
+            padding: 15px 20px;
+            margin-bottom: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .nav a {
+            color: #667eea;
+            text-decoration: none;
+            margin-right: 20px;
+            font-weight: 500;
+        }
+        .nav a:hover { text-decoration: underline; }
+        .section {
+            background: white;
+            padding: 30px;
+            margin-bottom: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .section h2 {
+            color: #1e3c72;
+            font-size: 2em;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+        .section h3 {
+            color: #2a5298;
+            font-size: 1.5em;
+            margin: 25px 0 15px 0;
+        }
+        .section p {
+            color: #555;
+            margin-bottom: 15px;
+            line-height: 1.8;
+        }
+        .benefit-box {
+            background: #e8f5e9;
+            padding: 20px;
+            border-radius: 6px;
+            border-left: 4px solid #10b981;
+            margin: 15px 0;
+        }
+        .code-block {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 20px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            margin: 15px 0;
+        }
+        .badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin: 5px 5px 5px 0;
+            background: #e7f3ff;
+            color: #0066cc;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Accelerator 5</h1>
+        <p class="subtitle">Data Lineage Tracking</p>
+        <p>End-to-end lineage capture</p>
+    </div>
+
+    <div class="container">
+        <div class="nav">
+            <a href="../index.html">← Back to Overview</a>
+            <a href="#overview">Overview</a>
+            <a href="#deployment">Deployment</a>
+            <a href="#api">API Documentation</a>
+        </div>
+
+        <div class="section">
+            <span class="badge">16+ API Endpoints</span>
+            <span class="badge">Port 8005</span>
+            <span class="badge">Production Ready</span>
+        </div>
+
+        <div id="overview" class="section">
+            <h2>Overview</h2>
+            <p>End-to-end data lineage capture and visualization for complete data journey transparency from source to consumption.</p>
+            
+            <div class="benefit-box">
+                <h3>Key Benefits</h3>
+                <p>This accelerator provides enterprise-grade capabilities with proven ROI. Detailed functionality documentation available in the main accelerator codebase.</p>
+            </div>
+        </div>
+
+        <div id="deployment" class="section">
+            <h2>Quick Start</h2>
+            
+            <h3>Docker Deployment</h3>
+            <div class="code-block">
+# Build the Docker image
+docker build -t accelerator-5 accelerators/05-*/
+
+# Run the container
+docker run -d -p 8005:8005 accelerator-5
+
+# Verify health
+curl http://localhost:8005/health
+            </div>
+
+            <h3>Local Development</h3>
+            <div class="code-block">
+# Navigate to accelerator directory
+cd accelerators/05-*/
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Run the application
+uvicorn src.main:app --host 0.0.0.0 --port 8005 --reload
+            </div>
+
+            <h3>Technology Stack</h3>
+            <div class="benefit-box">
+                <p><strong>Framework:</strong> FastAPI 0.109.0 - High-performance async API framework</p>
+                <p><strong>ORM:</strong> SQLAlchemy 2.0.25 - Database abstraction layer</p>
+                <p><strong>Validation:</strong> Pydantic 2.5.3 - Data validation and serialization</p>
+                <p><strong>Server:</strong> Uvicorn 0.27.0 - ASGI server for production</p>
+            </div>
+        </div>
+
+        <div id="api" class="section">
+            <h2>API Documentation</h2>
+            <p>Interactive Swagger UI documentation is available when the accelerator is running:</p>
+            <div class="code-block">http://localhost:8005/docs</div>
+            
+            <p style="margin-top: 20px;">Access the ReDoc alternative documentation:</p>
+            <div class="code-block">http://localhost:8005/redoc</div>
+
+            <h3>Health Check Endpoint</h3>
+            <div class="code-block">
+GET /health
+
+Response:
+{
+  "status": "healthy",
+  "version": "1.0.0",
+  "timestamp": "2025-11-17T10:30:00Z"
+}
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Additional Resources</h2>
+            <ul style="list-style: none; padding: 0;">
+                <li style="margin: 10px 0;">📚 <a href="../index.html">Complete Accelerators Overview</a></li>
+                <li style="margin: 10px 0;">🐳 <a href="../../docker-compose-accelerators.yml">Docker Compose Configuration</a></li>
+                <li style="margin: 10px 0;">📖 <a href="../../README.md">Platform Documentation</a></li>
+                <li style="margin: 10px 0;">🔧 <a href="../../accelerators/05-*/README.md">Accelerator-Specific README</a></li>
+            </ul>
+        </div>
+    </div>
+
+    <div style="background: #1e3c72; color: white; padding: 30px; text-align: center; margin-top: 40px;">
+        <p>© 2025 DataForge AI | Accelerator 5: Data Lineage Tracking</p>
+        <p style="margin-top: 10px;"><a href="../index.html" style="color: white;">← Back to All Accelerators</a></p>
+    </div>
+</body>
+</html>
