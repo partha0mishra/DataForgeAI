@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  # PostgreSQL for Airflow metadata
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+
+  # Airflow webserver
+  airflow-webserver:
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__WEBSERVER__SECRET_KEY: 'change-this-in-production'
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./airflow/dags:/app/airflow/dags
+      - ./airflow/logs:/app/airflow/logs
+      - ./airflow/plugins:/app/airflow/plugins
+    command: webserver
+
+  # Airflow scheduler
+  airflow-scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    volumes:
+      - ./airflow/dags:/app/airflow/dags
+      - ./airflow/logs:/app/airflow/logs
+      - ./airflow/plugins:/app/airflow/plugins
+    command: scheduler
+
+  # Pipeline Management API (optional - compatible with platform)
+  # Uncomment to run alongside Airflow
+  # pipeline-api:
+  #   build:
+  #     context: ../..
+  #     dockerfile: accelerators/01-pipeline-automation/Dockerfile.api
+  #   environment:
+  #     POSTGRES_HOST: postgres
+  #     POSTGRES_PASSWORD: airflow
+  #     AIRFLOW_URL: http://airflow-webserver:8080
+  #   ports:
+  #     - "8000:8000"
+  #   depends_on:
+  #     - airflow-webserver
+
+volumes:
+  postgres-data:

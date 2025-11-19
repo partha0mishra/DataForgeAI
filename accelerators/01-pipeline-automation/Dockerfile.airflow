@@ -1,0 +1,45 @@
+# Dockerfile for Airflow Mode
+# WARNING: This environment is INCOMPATIBLE with dataforge shared libraries
+# due to Pydantic v1 and SQLAlchemy 1.4.x requirements
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements
+COPY requirements-airflow.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements-airflow.txt
+
+# Copy application code
+COPY airflow/ ./airflow/
+COPY dbt/ ./dbt/
+COPY spark/ ./spark/
+
+# Set environment variables
+ENV AIRFLOW_HOME=/app/airflow
+ENV AIRFLOW__CORE__LOAD_EXAMPLES=False
+ENV AIRFLOW__CORE__DAGS_FOLDER=/app/airflow/dags
+
+# Initialize Airflow database
+RUN airflow db init
+
+# Create admin user
+RUN airflow users create \
+    --username admin \
+    --firstname Admin \
+    --lastname User \
+    --role Admin \
+    --email admin@dataforge.ai \
+    --password admin
+
+EXPOSE 8080
+
+CMD ["airflow", "webserver"]

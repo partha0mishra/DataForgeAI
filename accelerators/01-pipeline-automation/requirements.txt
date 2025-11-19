@@ -1,25 +1,23 @@
 # Pipeline Automation Accelerator Dependencies
+#
+# ⚠️ IMPORTANT: DEPENDENCY CONFLICT WARNING ⚠️
+#
+# This accelerator has TWO deployment modes with INCOMPATIBLE dependencies:
+#
+# 1. AIRFLOW MODE: Uses Apache Airflow 2.7.3 (requires Pydantic v1, SQLAlchemy 1.4.x)
+#    - Install with: pip install -r requirements-airflow.txt
+#    - Deploy in ISOLATED environment (separate Docker container)
+#    - Cannot use with dataforge-common or dataforge-connectors
+#
+# 2. API-ONLY MODE: Uses FastAPI only (requires Pydantic v2, SQLAlchemy 2.0+)
+#    - Install with: pip install -r requirements-api.txt
+#    - Compatible with dataforge shared libraries
+#    - No Airflow orchestration features
+#
+# See examples/usage.md for detailed deployment instructions
+#
+# DO NOT install all dependencies together - they will conflict!
 
-# Core
-apache-airflow==2.7.3
-apache-airflow-providers-postgres==5.7.1
-apache-airflow-providers-amazon==8.8.0
-dbt-core==1.7.0
-dbt-postgres==1.7.0
-pyspark==3.5.0
-
-# Shared libraries
-dataforge-common>=0.1.0
-dataforge-connectors>=0.1.0
-
-# Data processing
-pandas>=2.0.0
-pyarrow>=13.0.0
-
-# API
-fastapi>=0.104.0
-uvicorn[standard]>=0.24.0
-
-# Testing
-pytest>=7.4.0
-pytest-cov>=4.1.0
+# For specific requirements, see:
+# - requirements-airflow.txt (Airflow orchestration environment)
+# - requirements-api.txt (API-only environment)

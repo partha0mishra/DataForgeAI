@@ -1,0 +1,31 @@
+# Pipeline Automation - Airflow Environment Dependencies
+#
+# WARNING: Apache Airflow 2.7.3 requires Pydantic v1 and SQLAlchemy 1.4.x
+# This conflicts with dataforge-common and dataforge-connectors which require
+# Pydantic v2 and SQLAlchemy 2.0+
+#
+# This environment should be deployed SEPARATELY from other accelerators
+# Recommended: Use Docker container with isolated Python environment
+
+# Airflow core
+apache-airflow==2.7.3
+apache-airflow-providers-postgres==5.7.1
+apache-airflow-providers-amazon==8.8.0
+
+# dbt for transformations
+dbt-core==1.7.0
+dbt-postgres==1.7.0
+
+# Spark for distributed processing
+pyspark==3.5.0
+
+# Data processing (Airflow-compatible versions)
+pandas>=2.0.0
+pyarrow>=13.0.0
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+
+# Note: Do NOT install dataforge-common or dataforge-connectors in this environment
+# They require Pydantic v2 which conflicts with Airflow's Pydantic v1 requirement
