@@ -12,8 +12,8 @@ cd accelerators/01-pipeline-automation
 pip install -r requirements.txt
 
 # Install shared DataForge libraries
-pip install -e ../../shared/dataforge-common
-pip install -e ../../shared/dataforge-connectors
+pip install -e ../../shared/common
+pip install -e ../../shared/connectors
 ```
 
 ## Three Ways to Use It
