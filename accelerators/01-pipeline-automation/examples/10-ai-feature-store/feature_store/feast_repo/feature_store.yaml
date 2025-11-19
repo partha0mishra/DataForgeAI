@@ -1,0 +1,132 @@
+# Feast Feature Store Configuration
+# This file defines the infrastructure for the feature store
+
+project: customer_churn_ml
+provider: local  # Options: local, gcp, aws, azure
+
+# Registry: Stores feature definitions and metadata
+registry:
+  registry_type: file
+  path: data/registry.db  # For production, use S3/GCS: s3://bucket/path/registry.db
+
+# Online Store: Low-latency feature serving for inference
+online_store:
+  type: redis
+  connection_string: "redis://localhost:6379"
+  # For production Redis cluster:
+  # connection_string: "redis://redis-cluster.example.com:6379,password=xxx"
+  # Or use Redis Sentinel:
+  # connection_string: "redis+sentinel://localhost:26379/mymaster"
+  # ssl: true
+  # ssl_ca_certs: /path/to/ca.pem
+  # ssl_keyfile: /path/to/client-key.pem
+  # ssl_certfile: /path/to/client-cert.pem
+
+# Offline Store: Historical features for model training
+offline_store:
+  type: snowflake
+  account: YOUR_SNOWFLAKE_ACCOUNT  # e.g., xy12345.us-east-1
+  user: FEAST_USER
+  password: ${SNOWFLAKE_PASSWORD}  # Use environment variable
+  role: FEAST_ROLE
+  warehouse: FEAST_WH
+  database: ANALYTICS
+  schema: PUBLIC
+  # Authentication options:
+  # Option 1: Password (above)
+  # Option 2: Key pair authentication
+  # private_key_path: /path/to/rsa_key.p8
+  # private_key_passphrase: ${SNOWFLAKE_KEY_PASSPHRASE}
+  # Option 3: OAuth
+  # authenticator: oauth
+  # token: ${SNOWFLAKE_OAUTH_TOKEN}
+
+# Entity Key Serialization
+# Defines how entity keys are serialized for online store lookups
+entity_key_serialization_version: 2
+
+# Flags for feature store behavior
+flags:
+  # Enable alpha features (experimental)
+  alpha_features: false
+
+  # Enable on-demand feature views
+  on_demand_feature_views: true
+
+  # Enable streaming feature views
+  streaming_feature_views: false
+
+# Batch Materialization Configuration
+batch_engine:
+  type: local  # Options: local, spark, snowflake
+  # For Spark-based materialization:
+  # type: spark
+  # spark_config:
+  #   spark.master: "local[*]"
+  #   spark.executor.memory: "4g"
+  #   spark.driver.memory: "2g"
+
+# Feature Logging (for monitoring and debugging)
+feature_logging:
+  enabled: true
+  destination:
+    type: file
+    path: logs/feature_access.log
+    # For production, use cloud storage:
+    # type: s3
+    # bucket: my-feast-logs
+    # prefix: feature-access-logs/
+
+# Permissions (for multi-tenant deployments)
+# permissions:
+#   admin:
+#     - user:admin@example.com
+#     - group:data-engineering
+#   viewer:
+#     - user:analyst@example.com
+#     - group:ml-team
+
+# Metadata Configuration
+metadata:
+  # Tags to apply to all features
+  default_tags:
+    team: ml-engineering
+    project: customer-churn
+    environment: production
+
+  # Feature ownership
+  owners:
+    - ml-engineering@example.com
+    - data-platform@example.com
+
+# Data Quality Configuration
+data_quality:
+  enabled: true
+  # Integration with Great Expectations
+  great_expectations:
+    config_path: great_expectations/great_expectations.yml
+    checkpoint_name: feast_features_checkpoint
+
+# Monitoring and Observability
+monitoring:
+  # Prometheus metrics endpoint
+  prometheus:
+    enabled: true
+    port: 8000
+    path: /metrics
+
+  # Datadog integration
+  # datadog:
+  #   enabled: true
+  #   api_key: ${DATADOG_API_KEY}
+  #   tags:
+  #     - service:feast
+  #     - env:production
+
+# Cache Configuration (for online store)
+cache:
+  # TTL for cached features (in seconds)
+  ttl: 300  # 5 minutes
+
+  # Max cache size (in MB)
+  max_size_mb: 1024  # 1 GB

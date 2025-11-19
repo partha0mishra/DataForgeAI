@@ -1,0 +1,268 @@
+# Example 04: Medallion Architecture Configuration
+
+# Delta Lake Storage Configuration
+storage:
+  base_path: "s3://your-bucket/delta-lake"  # Or dbfs:/mnt/delta-lake in Databricks
+  checkpoint_path: "s3://your-bucket/checkpoints"
+
+  # Layer-specific paths (auto-generated from base_path if not specified)
+  bronze_path: "s3://your-bucket/delta-lake/bronze"
+  silver_path: "s3://your-bucket/delta-lake/silver"
+  gold_path: "s3://your-bucket/delta-lake/gold"
+
+# Kafka Source Configuration (Bronze Layer)
+kafka:
+  bootstrap_servers: "localhost:9092"  # Or Confluent Cloud endpoint
+  topic: "iot_events"
+
+  # Consumer configuration
+  consumer_group: "medallion-pipeline"
+  starting_offsets: "earliest"  # Or "latest" for new data only
+  max_offsets_per_trigger: 10000
+  fail_on_data_loss: false
+
+  # Security (use secrets in production)
+  security_protocol: "PLAINTEXT"  # Or "SASL_SSL" for Confluent Cloud
+  sasl_mechanism: "PLAIN"
+  # sasl_username: "${KAFKA_USERNAME}"
+  # sasl_password: "${KAFKA_PASSWORD}"
+
+# PostgreSQL Source Configuration (Bronze Layer)
+postgres:
+  jdbc_url: "jdbc:postgresql://localhost:5432/sensors"
+  table: "public.sensor_readings"
+  user: "postgres"
+  password: "${POSTGRES_PASSWORD}"  # Use environment variable
+  driver: "org.postgresql.Driver"
+
+  # Batch configuration
+  fetch_size: 10000
+  num_partitions: 4
+  partition_column: "sensor_id"
+
+  # Incremental load
+  incremental_column: "updated_at"
+  incremental_mode: true
+
+# Delta Live Tables Configuration
+dlt:
+  enabled: true
+  pipeline_name: "medallion_architecture_pipeline"
+  target: "iot_analytics"  # Target database/catalog
+
+  # Cluster configuration
+  cluster:
+    mode: "enhanced"  # enhanced (Photon) or standard
+    min_workers: 2
+    max_workers: 8
+    auto_scale: true
+    node_type_id: "i3.xlarge"  # AWS or "Standard_DS3_v2" for Azure
+
+  # Pipeline settings
+  continuous: true  # Continuous vs triggered mode
+  development: false  # Development mode for faster iteration
+  photon_enabled: true
+  channel: "CURRENT"  # Or "PREVIEW"
+
+# Bronze Layer Configuration
+bronze:
+  # IoT Events (Kafka streaming)
+  iot_events:
+    source_type: "kafka"
+    format: "json"
+    write_mode: "append"
+    checkpoint_location: "${storage.checkpoint_path}/bronze_iot_events"
+
+    # Streaming trigger
+    trigger:
+      type: "processingTime"
+      interval: "30 seconds"
+
+  # Sensor Readings (PostgreSQL batch)
+  sensor_readings:
+    source_type: "jdbc"
+    write_mode: "append"
+    schedule: "0 */6 * * *"  # Every 6 hours (cron format)
+
+# Silver Layer Configuration
+silver:
+  # Data quality expectations
+  quality_checks:
+    enabled: true
+
+    # Field validations
+    expectations:
+      - name: "valid_device_id"
+        rule: "device_id IS NOT NULL AND length(device_id) > 0"
+        action: "drop"  # drop, warn, or fail
+
+      - name: "valid_timestamp"
+        rule: "event_timestamp IS NOT NULL"
+        action: "drop"
+
+      - name: "valid_temperature"
+        rule: "temperature BETWEEN -50 AND 150"
+        action: "drop"
+
+      - name: "valid_humidity"
+        rule: "humidity BETWEEN 0 AND 100"
+        action: "drop"
+
+      - name: "valid_battery"
+        rule: "battery_level BETWEEN 0 AND 100"
+        action: "drop"
+
+      - name: "valid_location"
+        rule: "location_lat IS NOT NULL AND location_lon IS NOT NULL"
+        action: "warn"
+        success_threshold: 0.95  # Allow 5% failures
+
+  # Deduplication
+  deduplication:
+    enabled: true
+    key_columns: ["device_id", "event_timestamp"]
+    order_column: "kafka_offset"
+
+  # Sessionization
+  sessionization:
+    enabled: true
+    timeout_minutes: 30  # New session after 30 min gap
+
+  # Watermark for late data
+  watermark:
+    column: "event_timestamp"
+    threshold: "10 minutes"
+
+# Gold Layer Configuration
+gold:
+  # Aggregation windows
+  aggregations:
+    hourly_metrics:
+      enabled: true
+      window: "1 hour"
+      write_mode: "complete"  # complete or append
+      partition_columns: ["window_start"]
+
+    daily_metrics:
+      enabled: true
+      source: "gold_hourly_metrics"  # Aggregate from hourly
+      partition_columns: ["date"]
+
+  # Device health (SCD Type 1)
+  device_health:
+    enabled: true
+    write_mode: "overwrite"  # Always latest state
+    refresh_interval: "5 minutes"
+
+  # KPI dashboard
+  kpi_dashboard:
+    enabled: true
+    write_mode: "overwrite"
+    refresh_interval: "5 minutes"
+
+# Optimization Settings
+optimization:
+  # Auto-optimization
+  auto_optimize:
+    enabled: true
+    auto_compact: true
+    optimized_writes: true
+
+  # Z-ordering
+  z_order:
+    enabled: true
+    columns:
+      silver_iot_events: ["device_id", "event_timestamp"]
+      gold_hourly_metrics: ["window_start", "device_id"]
+
+  # Vacuum settings
+  vacuum:
+    enabled: true
+    retention_hours: 168  # 7 days
+    schedule: "0 2 * * 0"  # Weekly on Sunday at 2 AM
+
+  # Deletion vectors (for CDC)
+  deletion_vectors:
+    enabled: true
+
+# Data Quality Monitoring
+monitoring:
+  enabled: true
+
+  # Quality thresholds
+  thresholds:
+    max_null_percentage: 5.0
+    min_row_count: 100
+    max_duplicate_percentage: 1.0
+    max_data_age_hours: 24
+
+    # Value ranges
+    temperature_range: [-50, 150]
+    humidity_range: [0, 100]
+    battery_range: [0, 100]
+
+  # Checks to run
+  checks:
+    - layer: "bronze"
+      table: "iot_events"
+      checks: ["row_count", "freshness"]
+
+    - layer: "silver"
+      table: "iot_events"
+      checks: ["row_count", "freshness", "nulls", "duplicates", "ranges", "statistics"]
+
+    - layer: "gold"
+      table: "hourly_metrics"
+      checks: ["row_count", "freshness", "nulls"]
+
+  # Reporting
+  reports:
+    format: "html"  # json, html, or both
+    output_path: "/dbfs/quality-reports"
+    schedule: "0 8 * * *"  # Daily at 8 AM
+
+# Notifications
+notifications:
+  email:
+    enabled: false
+    recipients: ["data-team@example.com"]
+    smtp_host: "smtp.gmail.com"
+    smtp_port: 587
+
+  slack:
+    enabled: false
+    webhook_url: "${SLACK_WEBHOOK_URL}"
+    channel: "#data-quality"
+
+  pagerduty:
+    enabled: false
+    integration_key: "${PAGERDUTY_KEY}"
+
+# Logging
+logging:
+  level: "INFO"  # DEBUG, INFO, WARN, ERROR
+  format: "json"  # json or text
+  destination: "cloudwatch"  # cloudwatch, s3, or local
+
+  # Structured logging
+  structured: true
+  include_metadata: true
+
+# Cost Management
+cost:
+  # Spot instances
+  spot_instances:
+    enabled: true
+    max_price_percentage: 80
+
+  # Auto-shutdown
+  auto_shutdown:
+    enabled: true
+    idle_minutes: 30
+
+  # Cost tracking tags
+  tags:
+    project: "iot-analytics"
+    environment: "production"
+    cost_center: "engineering"
+    owner: "data-team"

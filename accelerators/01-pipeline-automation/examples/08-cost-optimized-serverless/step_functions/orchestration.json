@@ -1,0 +1,293 @@
+{
+  "Comment": "Cost-Optimized Serverless ETL Pipeline - Orchestrates Glue job execution with error handling and notifications",
+  "StartAt": "ValidateInput",
+  "States": {
+    "ValidateInput": {
+      "Type": "Pass",
+      "Comment": "Validate and prepare input parameters",
+      "Parameters": {
+        "source_bucket.$": "$.source_bucket",
+        "source_prefix.$": "$.source_prefix",
+        "target_bucket.$": "$.target_bucket",
+        "target_prefix.$": "$.target_prefix",
+        "database_name.$": "$.database_name",
+        "table_name.$": "$.table_name",
+        "partition_keys.$": "$.partition_keys",
+        "file_format.$": "$.file_format",
+        "execution_id.$": "$$.Execution.Name",
+        "start_time.$": "$$.Execution.StartTime"
+      },
+      "Next": "StartGlueJob"
+    },
+    "StartGlueJob": {
+      "Type": "Task",
+      "Comment": "Start AWS Glue ETL job",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName": "cost-optimized-etl-job",
+        "Arguments": {
+          "--source_bucket.$": "$.source_bucket",
+          "--source_prefix.$": "$.source_prefix",
+          "--target_bucket.$": "$.target_bucket",
+          "--target_prefix.$": "$.target_prefix",
+          "--database_name.$": "$.database_name",
+          "--table_name.$": "$.table_name",
+          "--partition_keys.$": "$.partition_keys",
+          "--file_format.$": "$.file_format",
+          "--job-bookmark-option": "job-bookmark-enable",
+          "--enable-metrics": "true",
+          "--enable-continuous-cloudwatch-log": "true"
+        },
+        "Timeout": 3600,
+        "MaxCapacity": 10
+      },
+      "TimeoutSeconds": 7200,
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Glue.ConcurrentRunsExceededException"
+          ],
+          "IntervalSeconds": 60,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        },
+        {
+          "ErrorEquals": [
+            "States.TaskFailed"
+          ],
+          "IntervalSeconds": 30,
+          "MaxAttempts": 2,
+          "BackoffRate": 1.5
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.error",
+          "Next": "HandleGlueJobFailure"
+        }
+      ],
+      "ResultPath": "$.glue_job_result",
+      "Next": "CheckGlueJobStatus"
+    },
+    "CheckGlueJobStatus": {
+      "Type": "Choice",
+      "Comment": "Verify Glue job completed successfully",
+      "Choices": [
+        {
+          "Variable": "$.glue_job_result.JobRunState",
+          "StringEquals": "SUCCEEDED",
+          "Next": "StartGlueCrawler"
+        },
+        {
+          "Variable": "$.glue_job_result.JobRunState",
+          "StringEquals": "FAILED",
+          "Next": "HandleGlueJobFailure"
+        }
+      ],
+      "Default": "HandleGlueJobFailure"
+    },
+    "StartGlueCrawler": {
+      "Type": "Task",
+      "Comment": "Run Glue Crawler to update Data Catalog with new partitions",
+      "Resource": "arn:aws:states:::aws-sdk:glue:startCrawler",
+      "Parameters": {
+        "Name": "cost-optimized-data-crawler"
+      },
+      "ResultPath": "$.crawler_result",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "Glue.CrawlerRunningException"
+          ],
+          "Comment": "Crawler already running, continue anyway",
+          "ResultPath": "$.crawler_error",
+          "Next": "WaitForCrawler"
+        },
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.crawler_error",
+          "Next": "NotifyCrawlerFailure"
+        }
+      ],
+      "Next": "WaitForCrawler"
+    },
+    "WaitForCrawler": {
+      "Type": "Wait",
+      "Comment": "Wait for crawler to process data",
+      "Seconds": 60,
+      "Next": "GetCrawlerStatus"
+    },
+    "GetCrawlerStatus": {
+      "Type": "Task",
+      "Comment": "Check crawler execution status",
+      "Resource": "arn:aws:states:::aws-sdk:glue:getCrawler",
+      "Parameters": {
+        "Name": "cost-optimized-data-crawler"
+      },
+      "ResultPath": "$.crawler_status",
+      "Next": "IsCrawlerComplete"
+    },
+    "IsCrawlerComplete": {
+      "Type": "Choice",
+      "Comment": "Check if crawler has finished",
+      "Choices": [
+        {
+          "Variable": "$.crawler_status.Crawler.State",
+          "StringEquals": "READY",
+          "Next": "UpdateAthenaTable"
+        },
+        {
+          "Variable": "$.crawler_status.Crawler.State",
+          "StringEquals": "RUNNING",
+          "Next": "WaitForCrawler"
+        }
+      ],
+      "Default": "NotifyCrawlerFailure"
+    },
+    "UpdateAthenaTable": {
+      "Type": "Task",
+      "Comment": "Run Athena query to update table statistics for query optimization",
+      "Resource": "arn:aws:states:::athena:startQueryExecution.sync",
+      "Parameters": {
+        "QueryString.$": "States.Format('MSCK REPAIR TABLE {}.{}', $.database_name, $.table_name)",
+        "WorkGroup": "cost-optimized-workgroup",
+        "ResultConfiguration": {
+          "OutputLocation.$": "States.Format('s3://{}/athena-results/', $.target_bucket)"
+        }
+      },
+      "ResultPath": "$.athena_result",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.athena_error",
+          "Next": "NotifyAthenaFailure"
+        }
+      ],
+      "Next": "CalculateCostMetrics"
+    },
+    "CalculateCostMetrics": {
+      "Type": "Task",
+      "Comment": "Calculate and log cost metrics for monitoring",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "cost-metrics-calculator",
+        "Payload": {
+          "glue_job_result.$": "$.glue_job_result",
+          "database_name.$": "$.database_name",
+          "table_name.$": "$.table_name",
+          "execution_id.$": "$.execution_id",
+          "start_time.$": "$.start_time"
+        }
+      },
+      "ResultPath": "$.cost_metrics",
+      "Next": "SendSuccessNotification"
+    },
+    "SendSuccessNotification": {
+      "Type": "Task",
+      "Comment": "Send success notification with metrics",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:etl-pipeline-notifications",
+        "Subject": "ETL Pipeline Success",
+        "Message": {
+          "status": "SUCCESS",
+          "execution_id.$": "$.execution_id",
+          "database.$": "$.database_name",
+          "table.$": "$.table_name",
+          "glue_job_id.$": "$.glue_job_result.JobRunId",
+          "duration_seconds.$": "$.glue_job_result.ExecutionTime",
+          "records_processed.$": "$.cost_metrics.Payload.records_processed",
+          "data_size_mb.$": "$.cost_metrics.Payload.data_size_mb",
+          "estimated_cost.$": "$.cost_metrics.Payload.estimated_cost",
+          "timestamp.$": "$$.State.EnteredTime"
+        }
+      },
+      "ResultPath": "$.notification_result",
+      "Next": "PipelineSuccess"
+    },
+    "PipelineSuccess": {
+      "Type": "Succeed",
+      "Comment": "Pipeline completed successfully"
+    },
+    "HandleGlueJobFailure": {
+      "Type": "Task",
+      "Comment": "Send failure notification for Glue job",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:etl-pipeline-notifications",
+        "Subject": "ETL Pipeline FAILED - Glue Job",
+        "Message": {
+          "status": "FAILED",
+          "stage": "GlueJob",
+          "execution_id.$": "$.execution_id",
+          "database.$": "$.database_name",
+          "table.$": "$.table_name",
+          "error.$": "$.error",
+          "timestamp.$": "$$.State.EnteredTime",
+          "action": "Review CloudWatch logs for detailed error information"
+        }
+      },
+      "ResultPath": "$.notification_result",
+      "Next": "PipelineFailure"
+    },
+    "NotifyCrawlerFailure": {
+      "Type": "Task",
+      "Comment": "Send failure notification for Crawler",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:etl-pipeline-notifications",
+        "Subject": "ETL Pipeline WARNING - Crawler Failed",
+        "Message": {
+          "status": "WARNING",
+          "stage": "GlueCrawler",
+          "execution_id.$": "$.execution_id",
+          "database.$": "$.database_name",
+          "table.$": "$.table_name",
+          "error.$": "$.crawler_error",
+          "timestamp.$": "$$.State.EnteredTime",
+          "action": "Data processed successfully but catalog may need manual update"
+        }
+      },
+      "ResultPath": "$.notification_result",
+      "Next": "PipelinePartialSuccess"
+    },
+    "NotifyAthenaFailure": {
+      "Type": "Task",
+      "Comment": "Send failure notification for Athena",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:etl-pipeline-notifications",
+        "Subject": "ETL Pipeline WARNING - Athena Update Failed",
+        "Message": {
+          "status": "WARNING",
+          "stage": "AthenaUpdate",
+          "execution_id.$": "$.execution_id",
+          "database.$": "$.database_name",
+          "table.$": "$.table_name",
+          "error.$": "$.athena_error",
+          "timestamp.$": "$$.State.EnteredTime",
+          "action": "Data processed successfully but table statistics may be outdated"
+        }
+      },
+      "ResultPath": "$.notification_result",
+      "Next": "PipelinePartialSuccess"
+    },
+    "PipelinePartialSuccess": {
+      "Type": "Succeed",
+      "Comment": "Pipeline completed with warnings"
+    },
+    "PipelineFailure": {
+      "Type": "Fail",
+      "Comment": "Pipeline failed",
+      "Error": "PipelineExecutionFailed",
+      "Cause": "ETL pipeline failed during execution. Check error details in CloudWatch logs."
+    }
+  }
+}
