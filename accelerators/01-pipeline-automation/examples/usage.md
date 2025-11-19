@@ -559,3 +559,63 @@ After setting up the pipeline accelerator:
 - [Apache Spark Documentation](https://spark.apache.org/docs/latest/)
 - [FastAPI Documentation](https://fastapi.tiangolo.com/)
 - [DataForge Dependency Guide](../../docs/DEPENDENCIES.md)
+
+---
+
+## 📚 Example Pipelines
+
+This accelerator includes **10 production-ready example pipelines** that demonstrate real-world use cases. Each example is a complete, working implementation with detailed documentation.
+
+### Examples Overview
+
+| # | Example | Use Case | Complexity | Status |
+|---|---------|----------|------------|--------|
+| **01** | [CSV to Warehouse](01-csv-to-warehouse/) | Classic batch file ingestion | ⭐ Beginner | ✅ Ready |
+| **02** | [API to Lakehouse](02-api-to-lakehouse/) | REST API incremental loads | ⭐⭐ Intermediate | 🚧 Coming Soon |
+| **03** | [Oracle to Snowflake](03-oracle-to-snowflake/) | Legacy database migration | ⭐⭐ Intermediate | 🚧 Coming Soon |
+| **04** | [Medallion Architecture](04-medallion-architecture/) | Multi-source lakehouse | ⭐⭐⭐ Advanced | 🚧 Coming Soon |
+| **05** | [Real-time Streaming](05-realtime-streaming/) | Fraud detection with windowing | ⭐⭐⭐ Advanced | 🚧 Coming Soon |
+| **06** | [Snowflake Native](06-snowflake-native/) | Snowpark + Dynamic Tables | ⭐⭐ Intermediate | 🚧 Coming Soon |
+| **07** | [BigQuery + Looker](07-bigquery-looker/) | GA4 to Looker pipeline | ⭐⭐ Intermediate | 🚧 Coming Soon |
+| **08** | [Cost-Optimized Serverless](08-cost-optimized-serverless/) | AWS Glue serverless architecture | ⭐⭐ Intermediate | 🚧 Coming Soon |
+| **09** | [Governed + Secure](09-governed-secure/) | Zero-trust security pipeline | ⭐⭐⭐ Advanced | 🚧 Coming Soon |
+| **10** | [AI Feature Store](10-ai-feature-store/) | ML feature engineering at scale | ⭐⭐⭐⭐ Expert | 🚧 Coming Soon |
+
+### Quick Start by Use Case
+
+**I need to:**
+- **Ingest files from S3/GCS** → Start with Example 01
+- **Pull data from APIs** → Start with Example 02
+- **Migrate from Oracle/SQL Server** → Start with Example 03
+- **Build a data lakehouse** → Start with Example 04
+- **Detect fraud in real-time** → Start with Example 05
+- **Use Snowflake native features** → Start with Example 06
+- **Analyze marketing data** → Start with Example 07
+- **Optimize costs** → Start with Example 08
+- **Pass security audits** → Start with Example 09
+- **Build ML features** → Start with Example 10
+
+### Example Structure
+
+Each example includes:
+- 📖 **README.md** - Complete documentation with architecture diagrams
+- ⚙️ **config.yaml** - Customizable configuration file
+- 💻 **Working Code** - Airflow DAGs, Spark jobs, SQL, etc.
+- 📊 **Sample Data** - Test data to run immediately (where applicable)
+- ✅ **Tests** - Data quality checks and validation
+- 🔧 **Setup Scripts** - One-command deployment
+
+### Learning Path
+
+**Beginner → Advanced:**
+1. Start with **Example 01** (CSV to Warehouse) - Learn the basics
+2. Try **Example 02** (API to Lakehouse) - Add incremental logic
+3. Explore **Example 04** (Medallion) - Understand architecture patterns
+4. Master **Example 10** (Feature Store) - Advanced ML pipelines
+
+### Contributing Examples
+
+Have a great pipeline pattern? We welcome contributions!
+See [CONTRIBUTING.md](../../../../CONTRIBUTING.md) for guidelines.
+
+---
