@@ -1,0 +1,117 @@
+# =============================================================================
+# Agentic Data Pipeline - Configuration
+# =============================================================================
+
+# LLM Provider Settings
+llm:
+  # Provider: xai, azure_openai, aws_bedrock, local
+  provider: "xai"
+
+  # Generation parameters
+  temperature: 0.0  # Deterministic code generation
+  max_tokens: 8000
+  top_p: 0.95
+
+  # Timeout settings (seconds)
+  timeout: 120
+  max_retries: 3
+
+  # Model-specific configurations
+  providers:
+    xai:
+      model: "grok-beta"
+      base_url: "https://api.x.ai/v1"
+
+    azure_openai:
+      model: "gpt-4o"
+      api_version: "2024-02-15-preview"
+
+    aws_bedrock:
+      model_id: "anthropic.claude-3-5-sonnet-20241022-v2:0"
+      region: "us-east-1"
+
+    local:
+      model: "local-model"
+      base_url: "http://localhost:1234/v1"
+
+# Application Settings
+app:
+  name: "Agentic Data Pipeline Generator"
+  version: "0.1.0"
+  debug: false
+
+# Database Settings
+database:
+  url: "sqlite:///./data/pipelines.db"
+  echo: false
+  pool_size: 5
+
+# RAG Settings
+rag:
+  enabled: true
+  chroma_persist_dir: "./data/chroma"
+  collection_name: "pipeline_generations"
+  embedding_model: "text-embedding-3-small"  # OpenAI
+  top_k_results: 3
+  similarity_threshold: 0.7
+
+# Prompt Engineering
+prompts:
+  system_prompt_path: "./prompts/system_prompt.txt"
+  few_shot_examples_path: "./prompts/few_shot_examples.json"
+  enable_few_shot: true
+  max_few_shot_examples: 5
+
+# Generation Settings
+generation:
+  supported_platforms:
+    - databricks
+    - snowflake
+    - bigquery
+    - synapse
+    - redshift
+    - aws_glue
+    - fabric
+
+  supported_orchestrators:
+    - airflow
+    - delta_live_tables
+    - dbt
+    - mage
+    - prefect
+    - snowpark
+    - synapse_pipeline
+
+  # File generation settings
+  max_files: 50
+  max_file_size_kb: 500
+
+  # Cost estimation (monthly, USD)
+  cost_estimates:
+    databricks_serverless_per_dbu: 0.70
+    snowflake_standard_per_credit: 4.00
+    bigquery_per_tb_scanned: 5.00
+    aws_glue_per_dpu_hour: 0.44
+
+# UI Settings
+ui:
+  theme: "light"
+  sidebar_width: 350
+  code_preview_height: 600
+  max_prompt_length: 5000
+
+# Logging
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "./logs/app.log"
+  max_bytes: 10485760  # 10MB
+  backup_count: 5
+
+# Security
+security:
+  enable_rate_limiting: true
+  max_requests_per_minute: 10
+  allowed_origins:
+    - "http://localhost:8501"
+    - "http://localhost:8000"

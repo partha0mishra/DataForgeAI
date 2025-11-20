@@ -1,0 +1,62 @@
+pipeline:
+  name: "oracle_cdc_to_snowflake"
+  platform: "snowflake"
+  orchestrator: "airflow"
+  description: "Real-time CDC from Oracle to Snowflake using Debezium"
+
+oracle:
+  host: "oracle-db.company.com"
+  port: 1521
+  service_name: "PRODDB"
+  username: "cdc_user"
+  # Password stored in Airflow Variables
+  password_variable: "oracle_cdc_password"
+  schemas:
+    - "SALES"
+    - "INVENTORY"
+
+debezium:
+  connector_class: "io.debezium.connector.oracle.OracleConnector"
+  database_hostname: "oracle-db.company.com"
+  database_port: 1521
+  database_user: "cdc_user"
+  database_dbname: "PRODDB"
+  database_out_server_name: "dbzout"
+  log_mining_strategy: "online_catalog"
+  snapshot_mode: "schema_only"
+
+kafka:
+  bootstrap_servers: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
+  topic_prefix: "oracle.cdc"
+  consumer_group: "snowflake-sink"
+
+snowflake:
+  account: "xy12345.us-east-1"
+  warehouse: "COMPUTE_WH"
+  database: "CDC_ANALYTICS"
+  schema: "BRONZE"
+  role: "CDC_LOADER"
+  user: "cdc_service_account"
+  # Password stored in Airflow Connection
+
+snowpipe:
+  enabled: true
+  auto_ingest: true
+  s3_stage: "s3://your-bucket/cdc-staging/"
+  notification_channel: "arn:aws:sns:us-east-1:123456789012:snowpipe-notifications"
+
+tables:
+  - name: "SALES.ORDERS"
+    snowflake_target: "CDC_ANALYTICS.BRONZE.ORDERS"
+    primary_key: "ORDER_ID"
+  - name: "SALES.ORDER_ITEMS"
+    snowflake_target: "CDC_ANALYTICS.BRONZE.ORDER_ITEMS"
+    primary_key: "ORDER_ITEM_ID"
+  - name: "INVENTORY.PRODUCTS"
+    snowflake_target: "CDC_ANALYTICS.BRONZE.PRODUCTS"
+    primary_key: "PRODUCT_ID"
+
+processing:
+  batch_size: 1000
+  checkpoint_interval: 60  # seconds
+  enable_schema_evolution: true

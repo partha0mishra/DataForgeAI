@@ -1,0 +1,68 @@
+pipeline:
+  name: "kinesis_fraud_detection_realtime"
+  platform: "aws"
+  orchestrator: "mage"
+  description: "Real-time fraud detection using AWS Kinesis and Lambda"
+
+aws:
+  region: "us-east-1"
+  account_id: "123456789012"
+
+kinesis:
+  stream_name: "transaction-stream"
+  shard_count: 2
+  retention_hours: 24
+  enhanced_monitoring: true
+
+lambda:
+  function_name: "fraud-detection-processor"
+  runtime: "python3.11"
+  memory_size: 512
+  timeout: 60
+  reserved_concurrent_executions: 10
+
+fraud_detection:
+  rules:
+    - name: "high_velocity"
+      description: "Detect multiple transactions in short time"
+      threshold:
+        transactions: 5
+        time_window_minutes: 10
+
+    - name: "unusual_amount"
+      description: "Detect amounts >3 std dev from user average"
+      threshold:
+        std_dev_multiplier: 3
+
+    - name: "location_anomaly"
+      description: "Detect impossible travel between locations"
+      threshold:
+        max_speed_mph: 600
+
+    - name: "suspicious_merchant"
+      description: "Check against known suspicious merchant list"
+      use_blocklist: true
+
+dynamodb:
+  user_profiles_table: "user-profiles"
+  fraud_alerts_table: "fraud-alerts"
+  merchant_blocklist_table: "merchant-blocklist"
+  billing_mode: "PAY_PER_REQUEST"
+
+sns:
+  fraud_alerts_topic: "arn:aws:sns:us-east-1:123456789012:fraud-alerts"
+  subscribers:
+    - email: "fraud-team@company.com"
+    - email: "risk-ops@company.com"
+
+cloudwatch:
+  log_group: "/aws/lambda/fraud-detection"
+  retention_days: 30
+  metrics:
+    - "FraudTransactionsDetected"
+    - "ProcessingLatency"
+    - "RuleFirings"
+
+mage:
+  pipeline_name: "kinesis_fraud_detection"
+  trigger_interval: "@streaming"

@@ -1,0 +1,27 @@
+[
+  {
+    "user_id": "U001",
+    "user_reviews": "Great product! Love the features and ease of use.",
+    "support_tickets": ""
+  },
+  {
+    "user_id": "U002",
+    "user_reviews": "Disappointed with the service. Too many bugs.",
+    "support_tickets": "Cannot login. App crashes frequently. Very frustrated."
+  },
+  {
+    "user_id": "U003",
+    "user_reviews": "Good value for money. Would recommend.",
+    "support_tickets": "Minor issue with billing, resolved quickly."
+  },
+  {
+    "user_id": "U004",
+    "user_reviews": "Not worth it. Canceling subscription.",
+    "support_tickets": "Want to cancel. Poor customer service. No response to emails."
+  },
+  {
+    "user_id": "U005",
+    "user_reviews": "Excellent! Best platform I've used.",
+    "support_tickets": ""
+  }
+]

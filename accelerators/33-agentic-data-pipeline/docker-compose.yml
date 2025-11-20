@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  # FastAPI Backend
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agentic-pipeline-api
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - LOG_LEVEL=INFO
+      - DATABASE_URL=sqlite:////app/data/pipelines.db
+      - CHROMA_PERSIST_DIRECTORY=/app/data/chroma
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./prompts:/app/prompts
+    command: uvicorn agentic_data_pipeline.api:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped
+    networks:
+      - agentic-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Streamlit Frontend
+  ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agentic-pipeline-ui
+    ports:
+      - "8501:8501"
+    environment:
+      - ENVIRONMENT=production
+      - LOG_LEVEL=INFO
+      - DATABASE_URL=sqlite:////app/data/pipelines.db
+      - CHROMA_PERSIST_DIRECTORY=/app/data/chroma
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./prompts:/app/prompts
+    command: streamlit run src/agentic_data_pipeline/ui.py --server.port 8501 --server.address 0.0.0.0
+    restart: unless-stopped
+    networks:
+      - agentic-network
+    depends_on:
+      - api
+
+networks:
+  agentic-network:
+    driver: bridge
+
+volumes:
+  data:
+    driver: local
+  logs:
+    driver: local

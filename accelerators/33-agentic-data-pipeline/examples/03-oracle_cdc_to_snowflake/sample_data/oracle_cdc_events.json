@@ -1,0 +1,144 @@
+[
+  {
+    "before": null,
+    "after": {
+      "ORDER_ID": 1001,
+      "CUSTOMER_ID": 5001,
+      "ORDER_DATE": "2025-01-15T10:30:00Z",
+      "TOTAL_AMOUNT": 299.99,
+      "STATUS": "PENDING",
+      "CREATED_BY": "SYSTEM"
+    },
+    "source": {
+      "version": "2.5.0",
+      "connector": "oracle",
+      "name": "oracle.cdc",
+      "ts_ms": 1705318200000,
+      "snapshot": "false",
+      "db": "PRODDB",
+      "schema": "SALES",
+      "table": "ORDERS",
+      "txId": "6.28.1234",
+      "scn": "123456789",
+      "commit_scn": "123456790"
+    },
+    "op": "c",
+    "ts_ms": 1705318200123
+  },
+  {
+    "before": {
+      "ORDER_ID": 1001,
+      "CUSTOMER_ID": 5001,
+      "ORDER_DATE": "2025-01-15T10:30:00Z",
+      "TOTAL_AMOUNT": 299.99,
+      "STATUS": "PENDING",
+      "CREATED_BY": "SYSTEM"
+    },
+    "after": {
+      "ORDER_ID": 1001,
+      "CUSTOMER_ID": 5001,
+      "ORDER_DATE": "2025-01-15T10:30:00Z",
+      "TOTAL_AMOUNT": 299.99,
+      "STATUS": "PROCESSING",
+      "CREATED_BY": "SYSTEM"
+    },
+    "source": {
+      "version": "2.5.0",
+      "connector": "oracle",
+      "name": "oracle.cdc",
+      "ts_ms": 1705318260000,
+      "snapshot": "false",
+      "db": "PRODDB",
+      "schema": "SALES",
+      "table": "ORDERS",
+      "txId": "6.28.1235",
+      "scn": "123456791",
+      "commit_scn": "123456792"
+    },
+    "op": "u",
+    "ts_ms": 1705318260234
+  },
+  {
+    "before": null,
+    "after": {
+      "ORDER_ITEM_ID": 2001,
+      "ORDER_ID": 1001,
+      "PRODUCT_ID": 100,
+      "QUANTITY": 2,
+      "UNIT_PRICE": 149.99,
+      "SUBTOTAL": 299.98
+    },
+    "source": {
+      "version": "2.5.0",
+      "connector": "oracle",
+      "name": "oracle.cdc",
+      "ts_ms": 1705318200100,
+      "snapshot": "false",
+      "db": "PRODDB",
+      "schema": "SALES",
+      "table": "ORDER_ITEMS",
+      "txId": "6.28.1234",
+      "scn": "123456789",
+      "commit_scn": "123456790"
+    },
+    "op": "c",
+    "ts_ms": 1705318200234
+  },
+  {
+    "before": {
+      "PRODUCT_ID": 100,
+      "PRODUCT_NAME": "Premium Widget",
+      "CATEGORY": "Electronics",
+      "PRICE": 149.99,
+      "STOCK_QUANTITY": 500
+    },
+    "after": {
+      "PRODUCT_ID": 100,
+      "PRODUCT_NAME": "Premium Widget",
+      "CATEGORY": "Electronics",
+      "PRICE": 149.99,
+      "STOCK_QUANTITY": 498
+    },
+    "source": {
+      "version": "2.5.0",
+      "connector": "oracle",
+      "name": "oracle.cdc",
+      "ts_ms": 1705318200150,
+      "snapshot": "false",
+      "db": "PRODDB",
+      "schema": "INVENTORY",
+      "table": "PRODUCTS",
+      "txId": "6.28.1234",
+      "scn": "123456789",
+      "commit_scn": "123456790"
+    },
+    "op": "u",
+    "ts_ms": 1705318200345
+  },
+  {
+    "before": {
+      "ORDER_ID": 1002,
+      "CUSTOMER_ID": 5002,
+      "ORDER_DATE": "2025-01-14T15:20:00Z",
+      "TOTAL_AMOUNT": 49.99,
+      "STATUS": "CANCELLED",
+      "CREATED_BY": "SYSTEM"
+    },
+    "after": null,
+    "source": {
+      "version": "2.5.0",
+      "connector": "oracle",
+      "name": "oracle.cdc",
+      "ts_ms": 1705318300000,
+      "snapshot": "false",
+      "db": "PRODDB",
+      "schema": "SALES",
+      "table": "ORDERS",
+      "txId": "6.28.1236",
+      "scn": "123456793",
+      "commit_scn": "123456794"
+    },
+    "op": "d",
+    "ts_ms": 1705318300456
+  }
+]

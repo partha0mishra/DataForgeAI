@@ -1,0 +1,67 @@
+{
+  "name": "Incremental_Load_Customers",
+  "properties": {
+    "activities": [
+      {
+        "name": "GetLastLoadTime",
+        "type": "Lookup",
+        "inputs": [{
+          "referenceName": "SynapseDataset",
+          "type": "DatasetReference"
+        }],
+        "typeProperties": {
+          "source": {
+            "type": "SqlDWSource",
+            "sqlReaderQuery": "SELECT ISNULL(MAX(ModifiedDate), '1900-01-01') AS LastLoadTime FROM dbo.Customers"
+          }
+        }
+      },
+      {
+        "name": "CopyIncrementalData",
+        "type": "Copy",
+        "dependsOn": [{
+          "activity": "GetLastLoadTime",
+          "dependencyConditions": ["Succeeded"]
+        }],
+        "inputs": [{
+          "referenceName": "SqlServerDataset",
+          "type": "DatasetReference"
+        }],
+        "outputs": [{
+          "referenceName": "SynapseDataset",
+          "type": "DatasetReference"
+        }],
+        "typeProperties": {
+          "source": {
+            "type": "SqlSource",
+            "sqlReaderQuery": {
+              "value": "@concat('SELECT * FROM dbo.Customers WHERE ModifiedDate > ''', activity('GetLastLoadTime').output.firstRow.LastLoadTime, '''')",
+              "type": "Expression"
+            }
+          },
+          "sink": {
+            "type": "SqlDWSink",
+            "writeBehavior": "Upsert",
+            "upsertSettings": {
+              "useTempDB": true,
+              "keys": ["CustomerID"]
+            }
+          },
+          "enableStaging": true,
+          "stagingSettings": {
+            "linkedServiceName": {
+              "referenceName": "AzureBlobStorage",
+              "type": "LinkedServiceReference"
+            }
+          },
+          "dataIntegrationUnits": 4,
+          "enableSkipIncompatibleRow": true
+        }
+      }
+    ],
+    "parameters": {},
+    "folder": {
+      "name": "SecureDataPipelines"
+    }
+  }
+}
