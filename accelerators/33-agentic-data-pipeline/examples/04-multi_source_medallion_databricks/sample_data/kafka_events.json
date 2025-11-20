@@ -1,0 +1,81 @@
+[
+  {
+    "topic": "user-events",
+    "key": "user_12345",
+    "value": {
+      "event_type": "page_view",
+      "user_id": "user_12345",
+      "timestamp": "2025-01-15T14:30:00Z",
+      "page_url": "/products/premium-widget",
+      "referrer": "https://google.com",
+      "session_id": "sess_abc123",
+      "device": "desktop",
+      "ip_address": "192.168.1.100"
+    },
+    "timestamp": 1705329000000
+  },
+  {
+    "topic": "user-events",
+    "key": "user_12345",
+    "value": {
+      "event_type": "add_to_cart",
+      "user_id": "user_12345",
+      "timestamp": "2025-01-15T14:32:00Z",
+      "product_id": "prod_100",
+      "quantity": 2,
+      "session_id": "sess_abc123"
+    },
+    "timestamp": 1705329120000
+  },
+  {
+    "topic": "transaction-events",
+    "key": "txn_98765",
+    "value": {
+      "event_type": "purchase",
+      "transaction_id": "txn_98765",
+      "user_id": "user_12345",
+      "timestamp": "2025-01-15T14:35:00Z",
+      "amount": 299.99,
+      "currency": "USD",
+      "payment_method": "credit_card",
+      "items": [
+        {
+          "product_id": "prod_100",
+          "quantity": 2,
+          "price": 149.99
+        }
+      ]
+    },
+    "timestamp": 1705329300000
+  },
+  {
+    "topic": "user-events",
+    "key": "user_67890",
+    "value": {
+      "event_type": "page_view",
+      "user_id": "user_67890",
+      "timestamp": "2025-01-15T14:40:00Z",
+      "page_url": "/products/standard-widget",
+      "referrer": null,
+      "session_id": "sess_xyz789",
+      "device": "mobile",
+      "ip_address": "192.168.1.101"
+    },
+    "timestamp": 1705329600000
+  },
+  {
+    "topic": "transaction-events",
+    "key": "txn_98766",
+    "value": {
+      "event_type": "refund",
+      "transaction_id": "txn_98766",
+      "original_transaction_id": "txn_98760",
+      "user_id": "user_45678",
+      "timestamp": "2025-01-15T14:45:00Z",
+      "amount": 49.99,
+      "currency": "USD",
+      "reason": "customer_request"
+    },
+    "timestamp": 1705329900000
+  }
+]

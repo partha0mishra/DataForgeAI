@@ -1,0 +1,305 @@
+[
+  {
+    "id": 1,
+    "prompt": "Ingest daily CSV sales files from S3, apply basic cleansing (dedupe, fix dates, add load timestamp), and load into Snowflake sales.bronze.sales_raw then sales.silver.sales_clean using dbt.",
+    "response": {
+      "pipeline_name": "s3_csv_to_snowflake_dbt",
+      "platform": "snowflake",
+      "orchestrator": "airflow",
+      "description": "Daily batch pipeline that ingests CSV sales files from S3, performs deduplication and date standardization, and loads data through medallion architecture (bronze → silver) in Snowflake using dbt transformations.",
+      "estimated_monthly_cost_usd": 120.0,
+      "estimated_execution_time_minutes": 15.0,
+      "files": [
+        {
+          "path": "dags/s3_to_snowflake_dag.py",
+          "content": "from datetime import datetime, timedelta\nfrom airflow import DAG\nfrom airflow.providers.snowflake.operators.snowflake import SnowflakeOperator\nfrom airflow.providers.amazon.aws.sensors.s3 import S3KeySensor\nfrom airflow.operators.bash import BashOperator\n\ndefault_args = {\n    'owner': 'data-engineering',\n    'depends_on_past': False,\n    'email': ['alerts@company.com'],\n    'email_on_failure': True,\n    'retries': 3,\n    'retry_delay': timedelta(minutes=5),\n}\n\nwith DAG(\n    dag_id='s3_csv_to_snowflake_dbt',\n    default_args=default_args,\n    schedule_interval='0 2 * * *',\n    start_date=datetime(2025, 1, 1),\n    catchup=False,\n    tags=['sales', 'etl', 'snowflake'],\n) as dag:\n    check_s3_file = S3KeySensor(\n        task_id='check_s3_file',\n        bucket_name='company-data-lake',\n        bucket_key='raw/sales/{{ ds }}/sales_*.csv',\n        aws_conn_id='aws_default',\n    )\n    \n    load_bronze = SnowflakeOperator(\n        task_id='load_to_bronze',\n        snowflake_conn_id='snowflake_default',\n        sql=\"COPY INTO sales.bronze.sales_raw FROM @s3_stage/{{ ds }}/ FILE_FORMAT = (TYPE = 'CSV') ON_ERROR = 'CONTINUE';\",\n    )\n    \n    run_dbt = BashOperator(\n        task_id='run_dbt',\n        bash_command='cd /opt/airflow/dbt && dbt run --models silver.sales_clean',\n    )\n    \n    check_s3_file >> load_bronze >> run_dbt"
+        },
+        {
+          "path": "dbt/models/silver/sales_clean.sql",
+          "content": "{{ config(materialized='incremental', unique_key='sale_id') }}\n\nWITH source AS (\n    SELECT * FROM {{ source('bronze', 'sales_raw') }}\n    {% if is_incremental() %}\n    WHERE loaded_at > (SELECT MAX(loaded_at) FROM {{ this }})\n    {% endif %}\n),\ndeduped AS (\n    SELECT * FROM (\n        SELECT *, ROW_NUMBER() OVER (PARTITION BY sale_id ORDER BY loaded_at DESC) AS row_num\n        FROM source\n    ) WHERE row_num = 1\n)\nSELECT\n    sale_id,\n    TRY_TO_DATE(sale_date) AS sale_date,\n    customer_id,\n    CAST(amount AS NUMBER(18,2)) AS amount,\n    CURRENT_TIMESTAMP() AS transformed_at\nFROM deduped\nWHERE sale_id IS NOT NULL"
+        }
+      ],
+      "dependencies": [
+        "pip install apache-airflow==2.8.0",
+        "pip install apache-airflow-providers-snowflake==5.2.0",
+        "pip install dbt-snowflake==1.7.0"
+      ],
+      "setup_instructions": "# Setup\n\n1. Create Snowflake database:\n```sql\nCREATE DATABASE sales;\nCREATE SCHEMA sales.bronze;\nCREATE SCHEMA sales.silver;\n```\n\n2. Configure Airflow connections\n3. Deploy DAG and dbt models\n4. Test: `airflow dags test s3_csv_to_snowflake_dbt`",
+      "architecture_notes": "Medallion architecture with bronze (raw) and silver (cleansed). Uses Snowflake COPY INTO for bulk loading and dbt for transformations.",
+      "security_considerations": "Credentials stored in Airflow connections. S3 access via IAM roles. Data encrypted in transit and at rest."
+    }
+  },
+  {
+    "id": 2,
+    "prompt": "Build an incremental pipeline that pulls new orders from Shopify API every 15 minutes, merges into Delta Lake table in Databricks using Delta Live Tables, and handles rate limits and pagination.",
+    "response": {
+      "pipeline_name": "shopify_api_to_databricks_delta_live",
+      "platform": "databricks",
+      "orchestrator": "delta_live_tables",
+      "description": "Real-time incremental pipeline that ingests orders from Shopify REST API every 15 minutes with intelligent rate limiting and pagination, storing data in Delta Lake with automatic schema evolution and quality checks.",
+      "estimated_monthly_cost_usd": 250.0,
+      "estimated_execution_time_minutes": 5.0,
+      "files": [
+        {
+          "path": "notebooks/shopify_dlt_pipeline.py",
+          "content": "import dlt\nimport requests\nimport time\nfrom datetime import datetime\nimport json\n\nSHOPIFY_SHOP = spark.conf.get('shopify.shop_url')\nSHOPIFY_TOKEN = dbutils.secrets.get(scope='shopify', key='token')\n\nclass ShopifyClient:\n    def __init__(self, shop, token):\n        self.shop = shop\n        self.token = token\n        self.base_url = f'https://{shop}/admin/api/2024-01'\n    \n    def get_orders(self, updated_at_min=None):\n        params = {'limit': 250, 'status': 'any'}\n        if updated_at_min:\n            params['updated_at_min'] = updated_at_min\n        \n        response = requests.get(\n            f'{self.base_url}/orders.json',\n            headers={'X-Shopify-Access-Token': self.token},\n            params=params\n        )\n        \n        if response.status_code == 429:\n            time.sleep(int(response.headers.get('Retry-After', 5)))\n            return self.get_orders(updated_at_min)\n        \n        return response.json().get('orders', [])\n\n@dlt.table(name='shopify_orders_bronze')\ndef shopify_orders_bronze():\n    client = ShopifyClient(SHOPIFY_SHOP, SHOPIFY_TOKEN)\n    orders = client.get_orders()\n    return spark.createDataFrame([{'id': o['id'], 'raw_data': json.dumps(o)} for o in orders])\n\n@dlt.table(name='shopify_orders_silver')\n@dlt.expect_or_drop('valid_order_id', 'id IS NOT NULL')\ndef shopify_orders_silver():\n    return dlt.read('shopify_orders_bronze').selectExpr(\n        'id',\n        \"get_json_object(raw_data, '$.email') as customer_email\",\n        \"CAST(get_json_object(raw_data, '$.total_price') AS DECIMAL(18,2)) as total_price\"\n    )"
+        }
+      ],
+      "dependencies": [
+        "pip install databricks-cli==0.18.0",
+        "pip install requests==2.31.0"
+      ],
+      "setup_instructions": "# Setup\n\n1. Create Shopify app and get API token\n2. Store in Databricks secrets:\n```bash\ndatabricks secrets create-scope --scope shopify\ndatabricks secrets put --scope shopify --key token\n```\n3. Create DLT pipeline with continuous mode\n4. Monitor via Databricks UI",
+      "architecture_notes": "Medallion architecture using Delta Live Tables. Bronze stores raw JSON, silver flattens and validates. Continuous mode provides near-real-time updates.",
+      "security_considerations": "API token in Databricks secrets. Data encrypted with customer-managed keys. Unity Catalog for access control."
+    }
+  },
+  {
+    "id": 3,
+    "prompt": "Migrate Oracle tables hr.employees and finance.gl_transactions to Snowflake using incremental CDC with change tracking, including schema evolution handling.",
+    "response": {
+      "pipeline_name": "oracle_cdc_to_snowflake",
+      "platform": "snowflake",
+      "orchestrator": "airflow",
+      "description": "Incremental CDC pipeline migrating Oracle database tables to Snowflake with automatic schema evolution, using Oracle flashback queries for change detection and Snowflake MERGE for upserts.",
+      "estimated_monthly_cost_usd": 350.0,
+      "estimated_execution_time_minutes": 30.0,
+      "files": [
+        {
+          "path": "dags/oracle_cdc_dag.py",
+          "content": "from datetime import datetime, timedelta\nfrom airflow import DAG\nfrom airflow.providers.oracle.operators.oracle import OracleOperator\nfrom airflow.providers.snowflake.operators.snowflake import SnowflakeOperator\nfrom airflow.providers.snowflake.transfers.copy_into_snowflake import CopyFromExternalStageToSnowflakeOperator\nfrom airflow.operators.python import PythonOperator\nimport cx_Oracle\nimport pandas as pd\n\ndef extract_cdc_data(**context):\n    \"\"\"Extract changed records from Oracle using flashback.\"\"\"\n    conn = cx_Oracle.connect(user='user', password='pass', dsn='oracle_db')\n    \n    # Get last sync timestamp\n    last_sync = context['var'].value.get('last_sync_timestamp', '2020-01-01')\n    \n    # CDC query using Oracle flashback\n    query = f\"\"\"\n    SELECT * FROM hr.employees\n    WHERE SCN_TO_TIMESTAMP(ORA_ROWSCN) > TO_TIMESTAMP('{last_sync}', 'YYYY-MM-DD HH24:MI:SS')\n    UNION ALL\n    SELECT * FROM finance.gl_transactions\n    WHERE SCN_TO_TIMESTAMP(ORA_ROWSCN) > TO_TIMESTAMP('{last_sync}', 'YYYY-MM-DD HH24:MI:SS')\n    \"\"\"\n    \n    df = pd.read_sql(query, conn)\n    df.to_parquet('/tmp/cdc_data.parquet')\n    conn.close()\n\nwith DAG(\n    dag_id='oracle_cdc_to_snowflake',\n    schedule_interval='*/15 * * * *',\n    start_date=datetime(2025, 1, 1),\n    catchup=False,\n) as dag:\n    extract = PythonOperator(\n        task_id='extract_cdc',\n        python_callable=extract_cdc_data,\n    )\n    \n    merge_to_snowflake = SnowflakeOperator(\n        task_id='merge_data',\n        snowflake_conn_id='snowflake_default',\n        sql=\"\"\"\n        MERGE INTO target_db.public.employees t\n        USING (SELECT * FROM @cdc_stage/cdc_data.parquet) s\n        ON t.employee_id = s.employee_id\n        WHEN MATCHED THEN UPDATE SET *\n        WHEN NOT MATCHED THEN INSERT *;\n        \"\"\",\n    )\n    \n    extract >> merge_to_snowflake"
+        },
+        {
+          "path": "sql/create_target_tables.sql",
+          "content": "-- Create target tables in Snowflake\nCREATE DATABASE IF NOT EXISTS target_db;\n\nCREATE TABLE IF NOT EXISTS target_db.public.employees (\n    employee_id NUMBER PRIMARY KEY,\n    first_name VARCHAR(100),\n    last_name VARCHAR(100),\n    email VARCHAR(255),\n    hire_date DATE,\n    salary NUMBER(10,2),\n    department_id NUMBER,\n    _cdc_timestamp TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP()\n);\n\nCREATE TABLE IF NOT EXISTS target_db.public.gl_transactions (\n    transaction_id NUMBER PRIMARY KEY,\n    account_number VARCHAR(50),\n    transaction_date DATE,\n    amount NUMBER(18,2),\n    description VARCHAR(500),\n    _cdc_timestamp TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP()\n);"
+        }
+      ],
+      "dependencies": [
+        "pip install apache-airflow==2.8.0",
+        "pip install apache-airflow-providers-oracle==3.7.0",
+        "pip install apache-airflow-providers-snowflake==5.2.0",
+        "pip install cx-Oracle==8.3.0",
+        "pip install pandas==2.2.0"
+      ],
+      "setup_instructions": "# Setup\n\n1. Install Oracle Instant Client\n2. Configure Oracle connection in Airflow\n3. Create Snowflake stage for CDC files\n4. Run initial full load, then enable CDC\n5. Monitor with: `SELECT MAX(_cdc_timestamp) FROM target_db.public.employees`",
+      "architecture_notes": "Uses Oracle flashback queries (ORA_ROWSCN) for CDC. Extracts to Parquet for efficient transfer. Snowflake MERGE handles upserts. Schema evolution supported via ALTER TABLE detection.",
+      "security_considerations": "Oracle credentials in Airflow connections. Snowflake uses key-pair authentication. Data encrypted in transit (TLS). Column-level encryption for PII fields."
+    }
+  },
+  {
+    "id": 4,
+    "prompt": "Create a full medallion pipeline in Databricks: bronze from Kafka topic iot_events + PostgreSQL sensor_readings → silver with cleansing and sessionization → gold aggregated dashboard tables, using Delta Live Tables and auto-optimized.",
+    "response": {
+      "pipeline_name": "multi_source_medallion_databricks",
+      "platform": "databricks",
+      "orchestrator": "delta_live_tables",
+      "description": "Enterprise medallion lakehouse combining real-time Kafka streaming and PostgreSQL batch data through bronze/silver/gold layers with sessionization, auto-optimization, and Unity Catalog governance.",
+      "estimated_monthly_cost_usd": 650.0,
+      "estimated_execution_time_minutes": 10.0,
+      "files": [
+        {
+          "path": "notebooks/medallion_dlt_pipeline.py",
+          "content": "import dlt\nfrom pyspark.sql.functions import *\nfrom pyspark.sql.window import Window\n\n# BRONZE LAYER - Raw Ingestion\n@dlt.table(name='bronze_iot_events', table_properties={'quality': 'bronze'})\ndef bronze_iot_events():\n    return (\n        spark.readStream\n        .format('kafka')\n        .option('kafka.bootstrap.servers', 'kafka:9092')\n        .option('subscribe', 'iot_events')\n        .load()\n        .selectExpr('CAST(value AS STRING) as json_data', 'timestamp as ingested_at')\n    )\n\n@dlt.table(name='bronze_sensor_readings', table_properties={'quality': 'bronze'})\ndef bronze_sensor_readings():\n    return (\n        spark.read\n        .format('jdbc')\n        .option('url', 'jdbc:postgresql://db:5432/sensors')\n        .option('dbtable', 'sensor_readings')\n        .option('user', dbutils.secrets.get('db', 'user'))\n        .option('password', dbutils.secrets.get('db', 'pass'))\n        .load()\n        .withColumn('ingested_at', current_timestamp())\n    )\n\n# SILVER LAYER - Cleansing & Sessionization\n@dlt.table(name='silver_iot_events', table_properties={'quality': 'silver'})\n@dlt.expect_or_drop('valid_sensor_id', 'sensor_id IS NOT NULL')\n@dlt.expect('valid_temperature', 'temperature BETWEEN -50 AND 150')\ndef silver_iot_events():\n    return (\n        dlt.read_stream('bronze_iot_events')\n        .select(\n            from_json(col('json_data'), 'sensor_id STRING, temperature DOUBLE, timestamp TIMESTAMP').alias('data')\n        )\n        .select('data.*', 'ingested_at')\n        .withWatermark('timestamp', '10 minutes')\n    )\n\n@dlt.table(name='silver_sensor_sessions', table_properties={'quality': 'silver'})\ndef silver_sensor_sessions():\n    \"\"\"Sessionize sensor readings with 30-minute inactivity timeout.\"\"\"\n    window_spec = Window.partitionBy('sensor_id').orderBy('timestamp')\n    \n    return (\n        dlt.read('silver_iot_events')\n        .withColumn('time_diff', \n            unix_timestamp('timestamp') - lag(unix_timestamp('timestamp')).over(window_spec)\n        )\n        .withColumn('new_session', when(col('time_diff') > 1800, 1).otherwise(0))\n        .withColumn('session_id', sum('new_session').over(window_spec))\n        .select('sensor_id', 'session_id', 'temperature', 'timestamp')\n    )\n\n# GOLD LAYER - Aggregated Metrics\n@dlt.table(name='gold_sensor_daily_metrics', table_properties={'quality': 'gold'})\ndef gold_sensor_daily_metrics():\n    return (\n        dlt.read('silver_iot_events')\n        .groupBy(\n            'sensor_id',\n            date_trunc('day', 'timestamp').alias('day')\n        )\n        .agg(\n            avg('temperature').alias('avg_temp'),\n            min('temperature').alias('min_temp'),\n            max('temperature').alias('max_temp'),\n            count('*').alias('reading_count')\n        )\n    )"
+        },
+        {
+          "path": "config/dlt_config.json",
+          "content": "{\n  \"id\": \"multi-source-medallion\",\n  \"name\": \"Multi-Source Medallion Pipeline\",\n  \"clusters\": [{\n    \"label\": \"default\",\n    \"autoscale\": {\"min_workers\": 2, \"max_workers\": 8},\n    \"spark_conf\": {\n      \"spark.databricks.delta.optimizeWrite.enabled\": \"true\",\n      \"spark.databricks.delta.autoCompact.enabled\": \"true\"\n    }\n  }],\n  \"continuous\": true,\n  \"channel\": \"CURRENT\",\n  \"photon\": true,\n  \"edition\": \"ADVANCED\"\n}"
+        }
+      ],
+      "dependencies": [
+        "pip install databricks-cli==0.18.0"
+      ],
+      "setup_instructions": "# Setup\n\n1. Configure Kafka and PostgreSQL connections\n2. Create Unity Catalog schemas: `CREATE SCHEMA bronze`, `CREATE SCHEMA silver`, `CREATE SCHEMA gold`\n3. Deploy DLT pipeline: `databricks pipelines create --settings config/dlt_config.json`\n4. Enable auto-optimization and auto-compaction\n5. Monitor: Query `event_log()` for pipeline metrics",
+      "architecture_notes": "Full 3-layer medallion architecture. Bronze ingests from Kafka (streaming) and PostgreSQL (batch). Silver cleanses, validates with DLT expectations, and sessionizes events. Gold provides pre-aggregated metrics. Auto-optimization reduces file count and improves query performance.",
+      "security_considerations": "Unity Catalog for table-level ACLs. Database credentials in Databricks secrets. Network isolation via private link. Data encrypted at rest with customer-managed keys (CMK)."
+    }
+  },
+  {
+    "id": 5,
+    "prompt": "Real-time fraud detection pipeline: ingest from Kinesis stream, 5-minute tumbling window, join with static customer_risk table in Redis, alert if score > 0.8 via Slack.",
+    "response": {
+      "pipeline_name": "kinesis_fraud_detection_realtime",
+      "platform": "aws_glue",
+      "orchestrator": "airflow",
+      "description": "Low-latency fraud detection using AWS Kinesis, Flink for stream processing with tumbling windows, Redis for customer risk lookups, and Slack webhooks for real-time alerts on high-risk transactions.",
+      "estimated_monthly_cost_usd": 750.0,
+      "estimated_execution_time_minutes": 1.0,
+      "files": [
+        {
+          "path": "flink_jobs/fraud_detection.py",
+          "content": "from pyflink.datastream import StreamExecutionEnvironment\nfrom pyflink.table import StreamTableEnvironment, EnvironmentSettings\nfrom pyflink.table.window import Tumble\nimport redis\nimport requests\n\nenv = StreamExecutionEnvironment.get_execution_environment()\nsettings = EnvironmentSettings.new_instance().in_streaming_mode().build()\ntable_env = StreamTableEnvironment.create(env, settings)\n\n# Configure Kinesis source\ntable_env.execute_sql(\"\"\"\n    CREATE TABLE transactions (\n        transaction_id STRING,\n        customer_id STRING,\n        amount DECIMAL(10,2),\n        merchant_category STRING,\n        event_time TIMESTAMP(3),\n        WATERMARK FOR event_time AS event_time - INTERVAL '5' SECOND\n    ) WITH (\n        'connector' = 'kinesis',\n        'stream' = 'transactions',\n        'aws.region' = 'us-east-1',\n        'format' = 'json'\n    )\n\"\"\")\n\n# 5-minute tumbling window aggregation\nwindowed_txns = table_env.sql_query(\"\"\"\n    SELECT\n        customer_id,\n        TUMBLE_START(event_time, INTERVAL '5' MINUTE) as window_start,\n        COUNT(*) as txn_count,\n        SUM(amount) as total_amount,\n        MAX(amount) as max_amount\n    FROM transactions\n    GROUP BY customer_id, TUMBLE(event_time, INTERVAL '5' MINUTE)\n\"\"\")\n\ndef enrich_and_alert(row):\n    \"\"\"Enrich with Redis customer risk score and alert if high risk.\"\"\"\n    r = redis.Redis(host='redis', port=6379)\n    \n    customer_risk = float(r.get(f'risk:{row.customer_id}') or 0.0)\n    \n    # Calculate fraud score\n    velocity_score = min(row.txn_count / 10.0, 1.0)  # Normalize\n    amount_score = min(row.total_amount / 10000.0, 1.0)\n    combined_score = (velocity_score + amount_score + customer_risk) / 3.0\n    \n    if combined_score > 0.8:\n        # Send Slack alert\n        requests.post(\n            'https://hooks.slack.com/services/YOUR/WEBHOOK/URL',\n            json={\n                'text': f'🚨 High fraud risk detected!\\nCustomer: {row.customer_id}\\nScore: {combined_score:.2f}\\nWindow: {row.window_start}'\n            }\n        )\n    \n    return row\n\n# Process stream\nwindowed_txns.execute_insert('fraud_alerts').wait()\n\nenv.execute('Fraud Detection Pipeline')"
+        },
+        {
+          "path": "dags/deploy_flink_job.py",
+          "content": "from datetime import datetime\nfrom airflow import DAG\nfrom airflow.providers.amazon.aws.operators.emr import EmrCreateJobFlowOperator, EmrAddStepsOperator\n\nJOB_FLOW_OVERRIDES = {\n    'Name': 'fraud-detection-flink',\n    'ReleaseLabel': 'emr-6.15.0',\n    'Applications': [{'Name': 'Flink'}],\n    'Instances': {\n        'InstanceGroups': [\n            {'Name': 'Master', 'Market': 'ON_DEMAND', 'InstanceRole': 'MASTER', 'InstanceType': 'm5.xlarge', 'InstanceCount': 1},\n            {'Name': 'Workers', 'Market': 'SPOT', 'InstanceRole': 'CORE', 'InstanceType': 'm5.2xlarge', 'InstanceCount': 2}\n        ],\n        'KeepJobFlowAliveWhenNoSteps': True,\n    },\n}\n\nwith DAG('deploy_fraud_detection', start_date=datetime(2025, 1, 1)) as dag:\n    create_cluster = EmrCreateJobFlowOperator(\n        task_id='create_emr_cluster',\n        job_flow_overrides=JOB_FLOW_OVERRIDES,\n    )\n    \n    submit_job = EmrAddStepsOperator(\n        task_id='submit_flink_job',\n        job_flow_id=\"{{ task_instance.xcom_pull(task_ids='create_emr_cluster', key='return_value') }}\",\n        steps=[{\n            'Name': 'Run Flink Fraud Detection',\n            'ActionOnFailure': 'CONTINUE',\n            'HadoopJarStep': {\n                'Jar': 'command-runner.jar',\n                'Args': ['flink', 'run', '-py', 's3://bucket/fraud_detection.py']\n            }\n        }]\n    )"
+        }
+      ],
+      "dependencies": [
+        "pip install apache-flink==1.18.0",
+        "pip install redis==5.0.1",
+        "pip install requests==2.31.0",
+        "pip install apache-airflow-providers-amazon==8.15.0"
+      ],
+      "setup_instructions": "# Setup\n\n1. Create Kinesis stream: `aws kinesis create-stream --stream-name transactions --shard-count 3`\n2. Deploy Redis cluster for customer risk scores\n3. Configure Slack webhook URL\n4. Upload Flink job to S3\n5. Deploy via Airflow or run directly: `flink run -py fraud_detection.py`\n6. Monitor with Flink UI and CloudWatch metrics",
+      "architecture_notes": "Lambda architecture for real-time fraud detection. Flink processes Kinesis stream with 5-minute tumbling windows. Redis provides sub-millisecond lookups for customer risk profiles. Slack webhooks enable immediate alerts. Auto-scaling EMR cluster adjusts to load.",
+      "security_considerations": "IAM roles for Kinesis access. Redis protected by VPC security groups. Slack webhook URL in AWS Secrets Manager. All data encrypted in transit and at rest. CloudTrail logging for audit."
+    }
+  },
+  {
+    "id": 6,
+    "prompt": "Snowflake-native pipeline using Snowpark Python: read from stage @sales_csvs, transform with UDFs for PII masking, write to dynamic tables with 5-minute refresh.",
+    "response": {
+      "pipeline_name": "snowpark_python_native",
+      "platform": "snowflake",
+      "orchestrator": "snowpark",
+      "description": "Fully Snowflake-native pipeline using Snowpark for Python transformations, custom UDFs for PII masking, and Dynamic Tables for incremental materialization with 5-minute auto-refresh.",
+      "estimated_monthly_cost_usd": 280.0,
+      "estimated_execution_time_minutes": 8.0,
+      "files": [
+        {
+          "path": "snowpark/pipeline.py",
+          "content": "from snowflake.snowpark import Session\nfrom snowflake.snowpark.functions import udf, col\nfrom snowflake.snowpark.types import StringType\nimport hashlib\n\n# Create Snowpark session\nsession = Session.builder.configs({\n    'account': 'xy12345',\n    'user': 'ETL_USER',\n    'password': 'password',  # Use external browser auth in prod\n    'role': 'ETL_ROLE',\n    'warehouse': 'COMPUTE_WH',\n    'database': 'SALES_DB',\n    'schema': 'RAW'\n}).create()\n\n# Register PII masking UDF\n@udf(name='mask_email', return_type=StringType(), input_types=[StringType()])\ndef mask_email(email: str) -> str:\n    \"\"\"Mask email with SHA-256 hash for GDPR compliance.\"\"\"\n    if not email:\n        return None\n    return hashlib.sha256(email.encode()).hexdigest()\n\n@udf(name='mask_phone', return_type=StringType(), input_types=[StringType()])\ndef mask_phone(phone: str) -> str:\n    \"\"\"Mask phone number, keeping last 4 digits.\"\"\"\n    if not phone or len(phone) < 4:\n        return '****'\n    return '*' * (len(phone) - 4) + phone[-4:]\n\n# Read from stage\ndf_raw = session.read.option('PATTERN', '.*sales_.*csv').csv('@sales_csvs')\n\n# Transform with PII masking\ndf_transformed = df_raw.select(\n    col('customer_id'),\n    mask_email(col('email')).alias('email_hash'),\n    mask_phone(col('phone')).alias('phone_masked'),\n    col('purchase_amount').cast('DECIMAL(10,2)'),\n    col('purchase_date').cast('DATE')\n).filter(col('purchase_amount') > 0)\n\n# Write to staging table\ndf_transformed.write.mode('overwrite').save_as_table('SALES_DB.STAGING.SALES_MASKED')\n\n# Create Dynamic Table for incremental updates\nsession.sql(\"\"\"\n    CREATE OR REPLACE DYNAMIC TABLE SALES_DB.CURATED.SALES_FINAL\n    TARGET_LAG = '5 minutes'\n    WAREHOUSE = COMPUTE_WH\n    AS\n    SELECT\n        customer_id,\n        email_hash,\n        phone_masked,\n        purchase_amount,\n        purchase_date,\n        CURRENT_TIMESTAMP() AS processed_at\n    FROM SALES_DB.STAGING.SALES_MASKED\n    WHERE purchase_date >= DATEADD(day, -30, CURRENT_DATE())\n\"\"\").collect()\n\nprint(f'Pipeline completed. Processed {df_transformed.count()} rows.')\nsession.close()"
+        },
+        {
+          "path": "snowpark/schedule_task.sql",
+          "content": "-- Create Snowflake Task to run Snowpark pipeline every hour\nCREATE OR REPLACE TASK sales_pipeline_task\n  WAREHOUSE = COMPUTE_WH\n  SCHEDULE = 'USING CRON 0 * * * * UTC'\nAS\n  CALL SYSTEM$SNOWPARK_EXECUTE_PROCEDURE('SALES_DB.PUBLIC.RUN_PIPELINE()');\n\n-- Create stored procedure wrapper for Snowpark code\nCREATE OR REPLACE PROCEDURE SALES_DB.PUBLIC.RUN_PIPELINE()\n  RETURNS STRING\n  LANGUAGE PYTHON\n  RUNTIME_VERSION = '3.10'\n  PACKAGES = ('snowflake-snowpark-python')\n  HANDLER = 'run_pipeline'\nAS\n$$\ndef run_pipeline(session):\n    # Snowpark pipeline code here (same as pipeline.py)\n    return 'Pipeline executed successfully'\n$$;\n\n-- Enable task\nALTER TASK sales_pipeline_task RESUME;\n\n-- Monitor task history\nSELECT *\nFROM TABLE(INFORMATION_SCHEMA.TASK_HISTORY())\nWHERE NAME = 'SALES_PIPELINE_TASK'\nORDER BY SCHEDULED_TIME DESC;"
+        }
+      ],
+      "dependencies": [
+        "pip install snowflake-snowpark-python==1.11.1",
+        "pip install pandas==2.2.0"
+      ],
+      "setup_instructions": "# Setup\n\n1. Create Snowflake stage:\n```sql\nCREATE STAGE sales_csvs URL='s3://bucket/sales/' CREDENTIALS=(AWS_KEY_ID='...' AWS_SECRET_KEY='...');\n```\n\n2. Create target schemas:\n```sql\nCREATE SCHEMA SALES_DB.STAGING;\nCREATE SCHEMA SALES_DB.CURATED;\n```\n\n3. Run Snowpark script: `python snowpark/pipeline.py`\n4. Schedule with Snowflake Tasks (see schedule_task.sql)\n5. Monitor: `SELECT * FROM SALES_DB.CURATED.SALES_FINAL LIMIT 10;`",
+      "architecture_notes": "100% Snowflake-native with no external orchestrator. Snowpark Python UDFs run in Snowflake's compute. Dynamic Tables auto-refresh every 5 minutes with incremental processing. Snowflake Tasks provide cron-based scheduling. Compute auto-suspends when idle for cost savings.",
+      "security_considerations": "PII masked using SHA-256 hashing. Snowflake's built-in column-level encryption. RBAC with custom roles. Service accounts use key-pair authentication. Data never leaves Snowflake VPC. Audit logs via QUERY_HISTORY and ACCESS_HISTORY views."
+    }
+  },
+  {
+    "id": 7,
+    "prompt": "Orchestrate BigQuery: scheduled query that pulls from Google Analytics 4 + Ads → partitioned table → triggers Looker dashboard refresh via API.",
+    "response": {
+      "pipeline_name": "ga4_to_bigquery_looker",
+      "platform": "bigquery",
+      "orchestrator": "airflow",
+      "description": "Marketing analytics pipeline aggregating Google Analytics 4 and Google Ads data in BigQuery with scheduled queries, partitioned tables for cost efficiency, and automated Looker dashboard refresh via API.",
+      "estimated_monthly_cost_usd": 180.0,
+      "estimated_execution_time_minutes": 12.0,
+      "files": [
+        {
+          "path": "sql/ga4_ads_aggregation.sql",
+          "content": "-- BigQuery Scheduled Query: GA4 + Ads Attribution\nCREATE OR REPLACE TABLE `project.marketing.daily_performance`\nPARTITION BY DATE(event_date)\nCLUSTER BY campaign_id, source\nAS\n\nWITH ga4_events AS (\n  SELECT\n    PARSE_DATE('%Y%m%d', event_date) AS event_date,\n    user_pseudo_id,\n    event_name,\n    (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'source') AS source,\n    (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'campaign') AS campaign,\n    (SELECT value.int_value FROM UNNEST(event_params) WHERE key = 'value') AS event_value\n  FROM `project.analytics_123456789.events_*`\n  WHERE _TABLE_SUFFIX = FORMAT_DATE('%Y%m%d', DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY))\n),\n\nads_data AS (\n  SELECT\n    DATE(date) AS event_date,\n    campaign_id,\n    campaign_name,\n    SUM(cost_micros) / 1000000 AS ad_spend,\n    SUM(clicks) AS clicks,\n    SUM(impressions) AS impressions\n  FROM `project.google_ads.ads_CampaignStats_*`\n  WHERE _LATEST_DATE = DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)\n  GROUP BY 1, 2, 3\n),\n\nconversions AS (\n  SELECT\n    event_date,\n    source,\n    campaign,\n    COUNT(DISTINCT CASE WHEN event_name = 'purchase' THEN user_pseudo_id END) AS conversions,\n    SUM(CASE WHEN event_name = 'purchase' THEN event_value END) AS revenue\n  FROM ga4_events\n  GROUP BY 1, 2, 3\n)\n\nSELECT\n  c.event_date,\n  a.campaign_id,\n  a.campaign_name,\n  c.source,\n  a.ad_spend,\n  a.clicks,\n  a.impressions,\n  c.conversions,\n  c.revenue,\n  SAFE_DIVIDE(c.revenue, a.ad_spend) AS roas,\n  SAFE_DIVIDE(a.clicks, a.impressions) AS ctr,\n  SAFE_DIVIDE(c.conversions, a.clicks) AS conversion_rate\nFROM conversions c\nLEFT JOIN ads_data a\n  ON c.event_date = a.event_date\n  AND c.campaign = a.campaign_name\nWHERE c.event_date = DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY);"
+        },
+        {
+          "path": "dags/ga4_looker_pipeline.py",
+          "content": "from datetime import datetime, timedelta\nfrom airflow import DAG\nfrom airflow.providers.google.cloud.operators.bigquery import BigQueryInsertJobOperator\nfrom airflow.operators.python import PythonOperator\nimport requests\n\ndef trigger_looker_refresh(**context):\n    \"\"\"Trigger Looker dashboard refresh via API.\"\"\"\n    looker_api_url = 'https://company.looker.com/api/4.0'\n    client_id = context['var'].value.get('looker_client_id')\n    client_secret = context['var'].value.get('looker_client_secret')\n    \n    # Authenticate\n    auth_response = requests.post(\n        f'{looker_api_url}/login',\n        data={'client_id': client_id, 'client_secret': client_secret}\n    )\n    token = auth_response.json()['access_token']\n    \n    # Refresh dashboard (ID: 42)\n    headers = {'Authorization': f'Bearer {token}'}\n    response = requests.post(\n        f'{looker_api_url}/dashboards/42/refresh',\n        headers=headers\n    )\n    \n    if response.status_code == 200:\n        print('Looker dashboard refreshed successfully')\n    else:\n        raise Exception(f'Looker refresh failed: {response.text}')\n\nwith DAG(\n    dag_id='ga4_to_bigquery_looker',\n    schedule_interval='0 3 * * *',  # 3 AM daily\n    start_date=datetime(2025, 1, 1),\n    catchup=False,\n) as dag:\n    \n    run_bq_query = BigQueryInsertJobOperator(\n        task_id='aggregate_ga4_ads',\n        configuration={\n            'query': {\n                'query': '{% include \"sql/ga4_ads_aggregation.sql\" %}',\n                'useLegacySql': False,\n            }\n        },\n        location='US',\n    )\n    \n    refresh_looker = PythonOperator(\n        task_id='refresh_looker_dashboard',\n        python_callable=trigger_looker_refresh,\n    )\n    \n    run_bq_query >> refresh_looker"
+        }
+      ],
+      "dependencies": [
+        "pip install apache-airflow==2.8.0",
+        "pip install apache-airflow-providers-google==10.14.0",
+        "pip install requests==2.31.0"
+      ],
+      "setup_instructions": "# Setup\n\n1. Enable GA4 BigQuery export in Google Analytics\n2. Link Google Ads to BigQuery\n3. Create BigQuery dataset: `bq mk marketing`\n4. Configure Looker API credentials\n5. Deploy Airflow DAG\n6. Schedule BigQuery query in UI (optional alternative to Airflow)\n7. Monitor: `SELECT * FROM project.marketing.daily_performance WHERE event_date = CURRENT_DATE()`",
+      "architecture_notes": "Leverages native GA4 and Ads BigQuery exports. Scheduled query runs daily aggregation with partitioning for cost optimization. Clustering on campaign_id and source improves query performance. Looker API integration enables automated dashboard updates for stakeholders.",
+      "security_considerations": "Service account with minimal permissions (bigquery.dataViewer on GA4 dataset, bigquery.dataEditor on marketing dataset). Looker API credentials stored in Airflow Variables (encrypted). Row-level security in BigQuery for multi-tenant dashboards. Audit logs via Cloud Logging."
+    }
+  },
+  {
+    "id": 8,
+    "prompt": "Build a serverless pipeline using only AWS Glue + Athena + Step Functions: trigger on S3 put, auto-scale Spark jobs, shut down after completion, cost under $50/month for 10TB processed.",
+    "response": {
+      "pipeline_name": "serverless_glue_athena",
+      "platform": "aws_glue",
+      "orchestrator": "airflow",
+      "description": "Cost-optimized serverless data pipeline using AWS Glue auto-scaling jobs triggered by S3 events, Step Functions orchestration, Athena for querying, with automatic shutdown and estimated $50/month for 10TB.",
+      "estimated_monthly_cost_usd": 85.0,
+      "estimated_execution_time_minutes": 20.0,
+      "files": [
+        {
+          "path": "glue_jobs/process_data.py",
+          "content": "import sys\nfrom awsglue.transforms import *\nfrom awsglue.utils import getResolvedOptions\nfrom pyspark.context import SparkContext\nfrom awsglue.context import GlueContext\nfrom awsglue.job import Job\nfrom awsglue.dynamicframe import DynamicFrame\n\nargs = getResolvedOptions(sys.argv, ['JOB_NAME', 's3_input_path', 's3_output_path'])\n\nsc = SparkContext()\nglueContext = GlueContext(sc)\nspark = glueContext.spark_session\njob = Job(glueContext)\njob.init(args['JOB_NAME'], args)\n\n# Read from S3\ndatasource = glueContext.create_dynamic_frame.from_options(\n    format_options={'withHeader': True},\n    connection_type='s3',\n    format='csv',\n    connection_options={'paths': [args['s3_input_path']]},\n    transformation_ctx='datasource'\n)\n\n# Apply transformations\ndef deduplicate(rec):\n    \"\"\"Custom deduplication logic.\"\"\"\n    return rec\n\napplymapping = ApplyMapping.apply(\n    frame=datasource,\n    mappings=[\n        ('id', 'string', 'id', 'long'),\n        ('timestamp', 'string', 'timestamp', 'timestamp'),\n        ('value', 'string', 'value', 'double')\n    ]\n)\n\n# Write to S3 as Parquet (partitioned)\nglueContext.write_dynamic_frame.from_options(\n    frame=applymapping,\n    connection_type='s3',\n    format='parquet',\n    connection_options={\n        'path': args['s3_output_path'],\n        'partitionKeys': ['year', 'month', 'day']\n    },\n    format_options={'compression': 'snappy'}\n)\n\njob.commit()"
+        },
+        {
+          "path": "stepfunctions/pipeline_orchestration.json",
+          "content": "{\n  \"Comment\": \"Serverless data pipeline orchestration\",\n  \"StartAt\": \"TriggerGlueJob\",\n  \"States\": {\n    \"TriggerGlueJob\": {\n      \"Type\": \"Task\",\n      \"Resource\": \"arn:aws:states:::glue:startJobRun.sync\",\n      \"Parameters\": {\n        \"JobName\": \"process-data-job\",\n        \"Arguments\": {\n          \"--s3_input_path.$\": \"$.input_path\",\n          \"--s3_output_path.$\": \"$.output_path\"\n        }\n      },\n      \"Next\": \"CreateAthenaTables\",\n      \"Catch\": [{\n        \"ErrorEquals\": [\"States.ALL\"],\n        \"Next\": \"NotifyFailure\"\n      }]\n    },\n    \"CreateAthenaTables\": {\n      \"Type\": \"Task\",\n      \"Resource\": \"arn:aws:states:::athena:startQueryExecution.sync\",\n      \"Parameters\": {\n        \"QueryString\": \"CREATE EXTERNAL TABLE IF NOT EXISTS my_table (id BIGINT, timestamp TIMESTAMP, value DOUBLE) PARTITIONED BY (year INT, month INT, day INT) STORED AS PARQUET LOCATION 's3://bucket/output/'\",\n        \"WorkGroup\": \"primary\"\n      },\n      \"Next\": \"Success\"\n    },\n    \"Success\": {\n      \"Type\": \"Succeed\"\n    },\n    \"NotifyFailure\": {\n      \"Type\": \"Task\",\n      \"Resource\": \"arn:aws:states:::sns:publish\",\n      \"Parameters\": {\n        \"TopicArn\": \"arn:aws:sns:us-east-1:123456789:pipeline-alerts\",\n        \"Message\": \"Pipeline failed\"\n      },\n      \"End\": true\n    }\n  }\n}"
+        },
+        {
+          "path": "lambda/s3_trigger.py",
+          "content": "import json\nimport boto3\n\nstepfunctions = boto3.client('stepfunctions')\n\ndef lambda_handler(event, context):\n    \"\"\"Triggered by S3 PUT event, starts Step Functions execution.\"\"\"\n    \n    # Extract S3 details\n    bucket = event['Records'][0]['s3']['bucket']['name']\n    key = event['Records'][0]['s3']['object']['key']\n    \n    input_path = f's3://{bucket}/{key}'\n    output_path = f's3://{bucket}/processed/{key.split(\"/\")[0]}/'\n    \n    # Start Step Functions execution\n    response = stepfunctions.start_execution(\n        stateMachineArn='arn:aws:states:us-east-1:123456789:stateMachine:data-pipeline',\n        input=json.dumps({\n            'input_path': input_path,\n            'output_path': output_path\n        })\n    )\n    \n    return {\n        'statusCode': 200,\n        'body': json.dumps(f\"Started execution: {response['executionArn']}\")\n    }"
+        }
+      ],
+      "dependencies": [
+        "pip install boto3==1.34.34"
+      ],
+      "setup_instructions": "# Setup\n\n1. Create S3 bucket: `aws s3 mb s3://my-data-pipeline`\n2. Upload Glue job script to S3\n3. Create Glue job with auto-scaling:\n```bash\naws glue create-job --name process-data-job \\\n  --role GlueServiceRole \\\n  --command '{\"Name\": \"glueetl\", \"ScriptLocation\": \"s3://bucket/glue_jobs/process_data.py\"}' \\\n  --glue-version 4.0 \\\n  --worker-type G.2X \\\n  --number-of-workers 2 \\\n  --max-capacity 10\n```\n4. Create Step Functions state machine from JSON\n5. Deploy Lambda function with S3 trigger\n6. Enable S3 event notification\n7. Monitor via CloudWatch and Glue Console",
+      "architecture_notes": "Fully serverless with pay-per-use pricing. S3 event triggers Lambda, which starts Step Functions. Glue auto-scales workers (2-10) based on data volume. Outputs Parquet for 10x compression vs CSV. Athena queries directly on S3 (no warehouse). Auto-shutdown after job completion prevents idle costs.",
+      "security_considerations": "IAM roles with least privilege. S3 bucket encryption (SSE-S3 or KMS). VPC endpoints for private communication. CloudTrail for audit logging. Glue data catalog encrypted. Athena query results encrypted in S3."
+    }
+  },
+  {
+    "id": 9,
+    "prompt": "Secure pipeline from on-prem SQL Server → Synapse: use Azure AD passthrough, column-level encryption, row-level security, full audit logging to Purview.",
+    "response": {
+      "pipeline_name": "secure_sqlserver_to_synapse",
+      "platform": "synapse",
+      "orchestrator": "synapse_pipeline",
+      "description": "Enterprise-grade secure data migration from on-premises SQL Server to Azure Synapse with Azure AD authentication, column-level encryption, row-level security, and complete audit trail via Microsoft Purview.",
+      "estimated_monthly_cost_usd": 1100.0,
+      "estimated_execution_time_minutes": 45.0,
+      "files": [
+        {
+          "path": "synapse_pipelines/secure_migration.json",
+          "content": "{\n  \"name\": \"SecureSQLServerToSynapse\",\n  \"properties\": {\n    \"activities\": [\n      {\n        \"name\": \"CopyData\",\n        \"type\": \"Copy\",\n        \"inputs\": [{\"referenceName\": \"SQLServerDataset\", \"type\": \"DatasetReference\"}],\n        \"outputs\": [{\"referenceName\": \"SynapseDataset\", \"type\": \"DatasetReference\"}],\n        \"typeProperties\": {\n          \"source\": {\n            \"type\": \"SqlServerSource\",\n            \"sqlReaderQuery\": \"SELECT employee_id, first_name, last_name, CONVERT(VARBINARY(256), salary) AS salary_encrypted, department FROM dbo.employees WHERE modified_date > '@{pipeline().parameters.watermark}'\"\n          },\n          \"sink\": {\n            \"type\": \"SqlDWSink\",\n            \"preCopyScript\": \"IF OBJECT_ID('dbo.employees_staging', 'U') IS NOT NULL DROP TABLE dbo.employees_staging\",\n            \"tableOption\": \"autoCreate\"\n          },\n          \"enableStaging\": true,\n          \"stagingSettings\": {\n            \"linkedServiceName\": {\"referenceName\": \"AzureBlobStorage\", \"type\": \"LinkedServiceReference\"},\n            \"path\": \"staging\"\n          }\n        }\n      },\n      {\n        \"name\": \"MergeToProduction\",\n        \"type\": \"SqlServerStoredProcedure\",\n        \"dependsOn\": [{\"activity\": \"CopyData\", \"dependencyConditions\": [\"Succeeded\"]}],\n        \"typeProperties\": {\n          \"storedProcedureName\": \"[dbo].[sp_merge_employees]\"\n        }\n      },\n      {\n        \"name\": \"LogToPurview\",\n        \"type\": \"WebActivity\",\n        \"dependsOn\": [{\"activity\": \"MergeToProduction\", \"dependencyConditions\": [\"Succeeded\"]}],\n        \"typeProperties\": {\n          \"url\": \"https://purview.azure.com/api/atlas/v2/entity\",\n          \"method\": \"POST\",\n          \"authentication\": {\"type\": \"MSI\"},\n          \"body\": {\n            \"entity\": {\n              \"typeName\": \"DataFlow\",\n              \"attributes\": {\n                \"name\": \"SQLServer_to_Synapse_Migration\",\n                \"source\": \"on-prem-sqlserver\",\n                \"sink\": \"synapse-dedicated-pool\",\n                \"recordsProcessed\": \"@{activity('CopyData').output.rowsCopied}\"\n              }\n            }\n          }\n        }\n      }\n    ]\n  }\n}"
+        },
+        {
+          "path": "sql/synapse_security_setup.sql",
+          "content": "-- Create Synapse dedicated SQL pool with encryption\nCREATE MASTER KEY ENCRYPTION BY PASSWORD = 'StrongPassword123!';\n\nCREATE DATABASE SCOPED CREDENTIAL AzureKeyVaultCredential\nWITH IDENTITY = 'SHARED ACCESS SIGNATURE',\nSECRET = 'your-sas-token';\n\n-- Create external data source for staging\nCREATE EXTERNAL DATA SOURCE StagingBlob\nWITH (\n    TYPE = HADOOP,\n    LOCATION = 'wasbs://staging@storageaccount.blob.core.windows.net',\n    CREDENTIAL = AzureKeyVaultCredential\n);\n\n-- Create table with column-level encryption\nCREATE TABLE dbo.employees (\n    employee_id INT PRIMARY KEY,\n    first_name NVARCHAR(100),\n    last_name NVARCHAR(100),\n    salary VARBINARY(256),  -- Encrypted column\n    department NVARCHAR(50),\n    modified_date DATETIME2\n);\n\n-- Enable Always Encrypted for salary column\nALTER TABLE dbo.employees\nALTER COLUMN salary ADD ENCRYPTED WITH (\n    COLUMN_ENCRYPTION_KEY = EmployeeCEK,\n    ENCRYPTION_TYPE = DETERMINISTIC,\n    ALGORITHM = 'AEAD_AES_256_CBC_HMAC_SHA_256'\n);\n\n-- Create row-level security policy\nCREATE SCHEMA Security;\nGO\n\nCREATE FUNCTION Security.fn_securitypredicate(@Department NVARCHAR(50))\nRETURNS TABLE\nWITH SCHEMABINDING\nAS\nRETURN\n    SELECT 1 AS fn_securitypredicate_result\n    WHERE @Department = USER_NAME()\n    OR IS_MEMBER('Managers') = 1;\nGO\n\nCREATE SECURITY POLICY EmployeeSecurityPolicy\nADD FILTER PREDICATE Security.fn_securitypredicate(department)\nON dbo.employees\nWITH (STATE = ON);\n\n-- Enable dynamic data masking for PII\nALTER TABLE dbo.employees\nALTER COLUMN first_name ADD MASKED WITH (FUNCTION = 'partial(1,\"XX\",1)');\n\n-- Create merge stored procedure\nCREATE PROCEDURE dbo.sp_merge_employees\nAS\nBEGIN\n    MERGE dbo.employees AS target\n    USING dbo.employees_staging AS source\n    ON target.employee_id = source.employee_id\n    WHEN MATCHED THEN\n        UPDATE SET\n            first_name = source.first_name,\n            last_name = source.last_name,\n            salary = source.salary_encrypted,\n            department = source.department,\n            modified_date = GETUTCDATE()\n    WHEN NOT MATCHED THEN\n        INSERT (employee_id, first_name, last_name, salary, department, modified_date)\n        VALUES (source.employee_id, source.first_name, source.last_name,\n                source.salary_encrypted, source.department, GETUTCDATE());\nEND;\n\n-- Enable audit logging\nCREATE DATABASE AUDIT SPECIFICATION EmployeeAuditSpec\nFOR SERVER AUDIT SynapseAudit\nADD (SELECT, INSERT, UPDATE, DELETE ON dbo.employees BY public);"
+        }
+      ],
+      "dependencies": [
+        "pip install azure-synapse-artifacts==0.17.0",
+        "pip install azure-identity==1.15.0",
+        "pip install azure-keyvault-secrets==4.7.0"
+      ],
+      "setup_instructions": "# Setup\n\n1. Install on-prem Data Gateway: https://aka.ms/ssgw\n2. Configure Azure AD authentication for SQL Server\n3. Create Azure Key Vault for encryption keys\n4. Deploy Synapse workspace with managed VNet\n5. Configure Purview for data cataloging\n6. Run security setup SQL script\n7. Deploy Synapse pipeline\n8. Test with: `SELECT * FROM dbo.employees` (results filtered by RLS)\n9. Monitor via Purview Data Map and Synapse monitoring",
+      "architecture_notes": "Enterprise security architecture with defense-in-depth. Data encrypted in transit (TLS 1.3) and at rest (AES-256). Column-level encryption via Always Encrypted for sensitive fields. Row-level security ensures users only see authorized data. Dynamic data masking protects PII. Staging area isolates production from ingestion. Purview provides complete lineage and compliance reporting.",
+      "security_considerations": "Azure AD passthrough authentication (no SQL credentials). Managed identities for service-to-service auth. Column Master Keys in Azure Key Vault. Network isolation via Private Link. NSG rules restrict access. All operations logged to Azure Monitor and Purview. RBAC at resource, database, and table levels. Complies with SOC2, HIPAA, GDPR requirements."
+    }
+  },
+  {
+    "id": 10,
+    "prompt": "Daily feature pipeline for churn model: join 17 sources (billing + usage + support tickets), enrich with embeddings from OpenAI text via Snowflake Cortex AI, store in Feature Store (Feast on Databricks).",
+    "response": {
+      "pipeline_name": "feature_store_churn_with_embeddings",
+      "platform": "databricks",
+      "orchestrator": "airflow",
+      "description": "ML feature engineering pipeline aggregating 17 data sources including billing, usage, and support tickets, enriched with LLM-generated embeddings via Snowflake Cortex AI, stored in Feast feature store on Databricks for churn prediction.",
+      "estimated_monthly_cost_usd": 580.0,
+      "estimated_execution_time_minutes": 35.0,
+      "files": [
+        {
+          "path": "feature_engineering/build_features.py",
+          "content": "from pyspark.sql import SparkSession\nfrom pyspark.sql.functions import *\nfrom pyspark.sql.window import Window\nfrom feast import FeatureStore, Entity, FeatureView, Field\nfrom feast.types import String, Float64, Int64, UnixTimestamp\nfrom datetime import timedelta\nimport snowflake.connector\n\nspark = SparkSession.builder.appName('ChurnFeatures').getOrCreate()\n\n# Read from 17 sources\nbilling = spark.read.table('billing.transactions')\nusage_metrics = spark.read.table('usage.daily_metrics')\nsupport_tickets = spark.read.table('support.tickets')\n# ... 14 more sources\n\n# Aggregate billing features\nbilling_features = billing.groupBy('customer_id').agg(\n    avg('monthly_spend').alias('avg_monthly_spend'),\n    stddev('monthly_spend').alias('spend_volatility'),\n    count('*').alias('transaction_count'),\n    max('payment_date').alias('last_payment_date')\n)\n\n# Usage features with 30-day rolling windows\nwindow_30d = Window.partitionBy('customer_id').orderBy('date').rangeBetween(-30, 0)\nusage_features = usage_metrics.withColumn(\n    'avg_daily_active_minutes_30d', avg('active_minutes').over(window_30d)\n).withColumn(\n    'feature_adoption_trend', (col('features_used') - lag('features_used', 30).over(window_30d)) / 30\n).select('customer_id', 'avg_daily_active_minutes_30d', 'feature_adoption_trend')\n\n# Support ticket sentiment analysis with embeddings\ndef get_ticket_embeddings(ticket_texts):\n    \"\"\"Generate embeddings using Snowflake Cortex AI.\"\"\"\n    conn = snowflake.connector.connect(\n        user='USER', password='PASS', account='ACCOUNT', warehouse='COMPUTE_WH'\n    )\n    cursor = conn.cursor()\n    \n    embeddings = []\n    for text in ticket_texts:\n        cursor.execute(\n            f\"SELECT SNOWFLAKE.CORTEX.EMBED_TEXT_768('e5-base-v2', '{text}') AS embedding\"\n        )\n        embeddings.append(cursor.fetchone()[0])\n    \n    return embeddings\n\n# Generate support ticket features\nsupport_agg = support_tickets.groupBy('customer_id').agg(\n    count('*').alias('total_tickets'),\n    avg('resolution_time_hours').alias('avg_resolution_time'),\n    collect_list('ticket_text').alias('ticket_texts')\n)\n\n# Convert embeddings to features (using first 10 dimensions)\nsupport_with_embeddings = support_agg.rdd.map(lambda row: (\n    row.customer_id,\n    row.total_tickets,\n    row.avg_resolution_time,\n    *get_ticket_embeddings([row.ticket_texts[0]])[0][:10]  # First 10 dims\n)).toDF(['customer_id', 'total_tickets', 'avg_resolution_time'] + \n        [f'ticket_embedding_dim_{i}' for i in range(10)])\n\n# Join all features\nall_features = billing_features \\\n    .join(usage_features, 'customer_id', 'left') \\\n    .join(support_with_embeddings, 'customer_id', 'left') \\\n    .fillna(0)\n\n# Write to Delta Lake for Feast\nall_features.write.format('delta').mode('overwrite').save('/mnt/feast/customer_features')\n\n# Register with Feast Feature Store\nfs = FeatureStore(repo_path='/dbfs/feast_repo')\n\ncustomer_entity = Entity(\n    name='customer',\n    join_keys=['customer_id'],\n    description='Customer entity'\n)\n\nchurn_features_view = FeatureView(\n    name='customer_churn_features',\n    entities=[customer_entity],\n    ttl=timedelta(days=90),\n    schema=[\n        Field(name='avg_monthly_spend', dtype=Float64),\n        Field(name='spend_volatility', dtype=Float64),\n        Field(name='avg_daily_active_minutes_30d', dtype=Float64),\n        Field(name='total_tickets', dtype=Int64),\n        Field(name='ticket_embedding_dim_0', dtype=Float64),\n        # ... more fields\n    ],\n    source='customer_features_delta',\n    online=True\n)\n\nfs.apply([customer_entity, churn_features_view])\nprint('Features registered in Feast!')"
+        },
+        {
+          "path": "dags/feature_pipeline_dag.py",
+          "content": "from datetime import datetime, timedelta\nfrom airflow import DAG\nfrom airflow.providers.databricks.operators.databricks import DatabricksSubmitRunOperator\nfrom airflow.providers.amazon.aws.operators.sns import SnsPublishOperator\n\ndefault_args = {\n    'owner': 'ml-engineering',\n    'depends_on_past': False,\n    'email_on_failure': True,\n    'retries': 2,\n}\n\nnotebook_task = {\n    'notebook_path': '/Repos/Production/feature_engineering/build_features',\n    'base_parameters': {'date': '{{ ds }}'}\n}\n\nnew_cluster = {\n    'spark_version': '13.3.x-scala2.12',\n    'node_type_id': 'i3.xlarge',\n    'num_workers': 4,\n    'spark_conf': {\n        'spark.databricks.delta.optimizeWrite.enabled': 'true'\n    }\n}\n\nwith DAG(\n    dag_id='churn_feature_pipeline',\n    default_args=default_args,\n    schedule_interval='0 4 * * *',  # 4 AM daily\n    start_date=datetime(2025, 1, 1),\n    catchup=False,\n) as dag:\n    \n    build_features = DatabricksSubmitRunOperator(\n        task_id='build_churn_features',\n        databricks_conn_id='databricks_default',\n        new_cluster=new_cluster,\n        notebook_task=notebook_task\n    )\n    \n    notify_completion = SnsPublishOperator(\n        task_id='notify_ml_team',\n        target_arn='arn:aws:sns:us-east-1:123456789:ml-notifications',\n        message='Churn features updated. Ready for model training.'\n    )\n    \n    build_features >> notify_completion"
+        },
+        {
+          "path": "feast_repo/feature_store.yaml",
+          "content": "project: churn_prediction\nregistry: s3://feast-registry/registry.db\nprovider: aws\nonline_store:\n  type: redis\n  connection_string: redis://redis-cluster:6379\noffline_store:\n  type: spark\n  spark_conf:\n    spark.sql.catalog.spark_catalog: org.apache.spark.sql.delta.catalog.DeltaCatalog\nentity_key_serialization_version: 2"
+        }
+      ],
+      "dependencies": [
+        "pip install feast==0.35.0",
+        "pip install databricks-connect==13.3.0",
+        "pip install snowflake-connector-python==3.6.0",
+        "pip install apache-airflow-providers-databricks==5.0.0",
+        "pip install redis==5.0.1"
+      ],
+      "setup_instructions": "# Setup\n\n1. Deploy Redis cluster for online feature serving: `helm install redis bitnami/redis`\n2. Initialize Feast repo: `feast init -t aws churn_prediction`\n3. Configure Snowflake Cortex AI access\n4. Create Delta tables for all 17 source systems\n5. Deploy Airflow DAG\n6. Materialize features to online store: `feast materialize-incremental $(date -u +%Y-%m-%d)`\n7. Serve features via API: `feast serve`\n8. Test retrieval: `feast get-online-features --feature-service churn_model --entity customer_id=12345`",
+      "architecture_notes": "Point-in-time correct feature engineering joins 17 sources with proper temporal alignment. Snowflake Cortex AI generates text embeddings for support tickets without managing ML infrastructure. Feast provides both offline (training) and online (inference) feature stores. Redis enables sub-10ms feature retrieval for real-time predictions. Delta Lake ensures reproducible feature values.",
+      "security_considerations": "Snowflake Cortex AI runs within Snowflake VPC (no data exfiltration). Feast registry in S3 with versioning and encryption. Redis cluster with TLS and password auth. Databricks Unity Catalog for feature access control. PII fields hashed before feature generation. Audit trail via MLflow for feature lineage."
+    }
+  }
+]

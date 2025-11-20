@@ -1,0 +1,78 @@
+[
+  {
+    "event_date": "20250115",
+    "event_timestamp": 1705329000000000,
+    "event_name": "page_view",
+    "event_params": [
+      {"key": "page_location", "value": {"string_value": "https://example.com/products"}},
+      {"key": "page_title", "value": {"string_value": "Products Page"}},
+      {"key": "ga_session_id", "value": {"int_value": 1705329000}}
+    ],
+    "user_pseudo_id": "123456789.9876543210",
+    "user_properties": [
+      {"key": "user_type", "value": {"string_value": "returning"}},
+      {"key": "country", "value": {"string_value": "United States"}}
+    ],
+    "device": {
+      "category": "desktop",
+      "mobile_brand_name": null,
+      "mobile_model_name": null,
+      "operating_system": "Windows",
+      "browser": "Chrome"
+    },
+    "geo": {
+      "continent": "Americas",
+      "country": "United States",
+      "region": "California",
+      "city": "San Francisco"
+    },
+    "traffic_source": {
+      "name": "google",
+      "medium": "organic",
+      "source": "google"
+    }
+  },
+  {
+    "event_date": "20250115",
+    "event_timestamp": 1705329060000000,
+    "event_name": "add_to_cart",
+    "event_params": [
+      {"key": "currency", "value": {"string_value": "USD"}},
+      {"key": "value", "value": {"double_value": 149.99}},
+      {"key": "items", "value": {"string_value": "[{\"item_id\":\"P100\",\"item_name\":\"Premium Widget\",\"price\":149.99,\"quantity\":1}]"}}
+    ],
+    "user_pseudo_id": "123456789.9876543210",
+    "user_properties": [
+      {"key": "user_type", "value": {"string_value": "returning"}}
+    ],
+    "ecommerce": {
+      "transaction_id": null,
+      "value": 149.99,
+      "currency": "USD",
+      "items": [
+        {"item_id": "P100", "item_name": "Premium Widget", "price": 149.99, "quantity": 1}
+      ]
+    }
+  },
+  {
+    "event_date": "20250115",
+    "event_timestamp": 1705329120000000,
+    "event_name": "purchase",
+    "event_params": [
+      {"key": "currency", "value": {"string_value": "USD"}},
+      {"key": "transaction_id", "value": {"string_value": "TXN001"}},
+      {"key": "value", "value": {"double_value": 149.99}}
+    ],
+    "user_pseudo_id": "123456789.9876543210",
+    "ecommerce": {
+      "transaction_id": "TXN001",
+      "value": 149.99,
+      "currency": "USD",
+      "tax": 12.00,
+      "shipping": 5.00,
+      "items": [
+        {"item_id": "P100", "item_name": "Premium Widget", "price": 149.99, "quantity": 1}
+      ]
+    }
+  }
+]

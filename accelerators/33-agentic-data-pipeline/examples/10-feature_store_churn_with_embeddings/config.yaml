@@ -1,0 +1,63 @@
+pipeline:
+  name: "feature_store_churn_with_embeddings"
+  platform: "databricks"
+  orchestrator: "databricks_workflows"
+  description: "ML feature store for churn prediction with text embeddings"
+
+databricks:
+  workspace_url: "https://your-workspace.cloud.databricks.com"
+  cluster_id: "ml-cluster-id"
+  catalog: "ml_platform"
+  schema: "churn_features"
+
+feature_store:
+  database: "ml_platform.churn_features"
+  online_store:
+    enabled: true
+    provider: "dynamodb"
+    table_name: "churn_features_online"
+
+  feature_tables:
+    - name: "user_behavioral_features"
+      primary_keys: ["user_id"]
+      timestamp_key: "event_timestamp"
+      refresh_schedule: "0 */6 * * *"
+
+    - name: "user_interaction_embeddings"
+      primary_keys: ["user_id"]
+      timestamp_key: "embedding_timestamp"
+      refresh_schedule: "0 2 * * *"
+
+    - name: "user_transaction_features"
+      primary_keys: ["user_id"]
+      timestamp_key: "feature_timestamp"
+      refresh_schedule: "0 */4 * * *"
+
+embeddings:
+  model: "sentence-transformers/all-MiniLM-L6-v2"
+  dimension: 384
+  input_fields:
+    - "user_reviews"
+    - "support_tickets"
+    - "product_descriptions"
+
+ml_training:
+  model_type: "gradient_boosted_trees"
+  target_variable: "churned"
+  features:
+    - "total_logins_30d"
+    - "avg_session_duration"
+    - "support_tickets_count"
+    - "transaction_count_30d"
+    - "avg_transaction_amount"
+    - "embedding_similarity_score"
+
+mlflow:
+  tracking_uri: "databricks"
+  experiment_name: "/ml/churn_prediction"
+  model_registry: "churn_model"
+
+monitoring:
+  data_quality_checks: true
+  feature_drift_detection: true
+  model_performance_tracking: true

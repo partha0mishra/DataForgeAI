@@ -1,0 +1,41 @@
+# Configuration for S3 CSV to Snowflake dbt Pipeline
+# Override defaults for this specific example
+
+pipeline:
+  name: "s3_csv_to_snowflake_dbt"
+  platform: "snowflake"
+  orchestrator: "airflow"
+
+# Snowflake connection
+snowflake:
+  account: "xy12345.us-east-1"
+  warehouse: "COMPUTE_WH"
+  database: "sales"
+  schema: "bronze"
+  role: "SYSADMIN"
+
+# AWS S3 configuration
+aws:
+  region: "us-east-1"
+  s3_bucket: "company-data-lake"
+  s3_prefix: "raw/sales/"
+
+# Airflow configuration
+airflow:
+  schedule_interval: "0 2 * * *"  # Daily at 2 AM
+  catchup: false
+  max_active_runs: 1
+  email_on_failure: true
+  email: "data-team@company.com"
+
+# dbt configuration
+dbt:
+  target: "prod"
+  profiles_dir: "/opt/airflow/dbt"
+  models: "silver.sales_clean"
+
+# Performance tuning
+performance:
+  snowflake_warehouse_size: "SMALL"
+  copy_into_error_tolerance: "CONTINUE"
+  parallel_loads: 1

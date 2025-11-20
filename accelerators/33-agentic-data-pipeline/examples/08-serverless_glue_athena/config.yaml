@@ -1,0 +1,48 @@
+pipeline:
+  name: "serverless_glue_athena"
+  platform: "aws"
+  orchestrator: "step_functions"
+  description: "Serverless data lake with AWS Glue and Athena"
+
+aws:
+  region: "us-east-1"
+  account_id: "123456789012"
+
+s3:
+  data_lake_bucket: "s3://your-data-lake"
+  raw_prefix: "raw/"
+  processed_prefix: "processed/"
+  athena_results_prefix: "athena-results/"
+
+glue:
+  database_name: "data_lake"
+  crawler_name: "data-lake-crawler"
+  crawler_schedule: "cron(0 2 * * ? *)"
+
+  etl_jobs:
+    - name: "process-sales-data"
+      script_location: "s3://your-scripts/glue/process_sales.py"
+      glue_version: "4.0"
+      worker_type: "G.1X"
+      number_of_workers: 2
+
+athena:
+  workgroup: "data-analytics"
+  catalog: "AwsDataCatalog"
+  output_location: "s3://your-data-lake/athena-results/"
+
+step_functions:
+  state_machine_name: "glue-athena-pipeline"
+  execution_role: "arn:aws:iam::123456789012:role/StepFunctionsRole"
+
+partitioning:
+  enabled: true
+  columns:
+    - "year"
+    - "month"
+    - "day"
+
+cost_optimization:
+  use_spot_instances: false
+  glue_flex_execution: true
+  athena_data_compression: "SNAPPY"

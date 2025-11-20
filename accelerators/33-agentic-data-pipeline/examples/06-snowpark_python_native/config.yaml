@@ -1,0 +1,67 @@
+pipeline:
+  name: "snowpark_python_native"
+  platform: "snowflake"
+  orchestrator: "snowflake_tasks"
+  description: "Native Snowpark Python data transformation pipeline"
+
+snowflake:
+  account: "xy12345.us-east-1"
+  warehouse: "COMPUTE_WH"
+  database: "ANALYTICS"
+  schema: "PUBLIC"
+  role: "DATA_ENGINEER"
+  user: "service_account"
+  # Password stored in environment variable
+
+snowpark:
+  session_parameters:
+    QUERY_TAG: "snowpark_pipeline"
+    STATEMENT_TIMEOUT_IN_SECONDS: 3600
+
+  packages:
+    - "snowflake-snowpark-python"
+    - "pandas"
+    - "numpy"
+    - "scikit-learn"
+
+stored_procedures:
+  - name: "ingest_sales_data"
+    database: "ANALYTICS"
+    schema: "PROCEDURES"
+    stage: "@ANALYTICS.STAGES.PYTHON_CODE"
+
+  - name: "transform_sales_data"
+    database: "ANALYTICS"
+    schema: "PROCEDURES"
+    stage: "@ANALYTICS.STAGES.PYTHON_CODE"
+
+  - name: "aggregate_metrics"
+    database: "ANALYTICS"
+    schema: "PROCEDURES"
+    stage: "@ANALYTICS.STAGES.PYTHON_CODE"
+
+tasks:
+  - name: "INGEST_SALES_TASK"
+    schedule: "USING CRON 0 2 * * * America/Los_Angeles"
+    warehouse: "COMPUTE_WH"
+    procedure: "ANALYTICS.PROCEDURES.INGEST_SALES_DATA"
+
+  - name: "TRANSFORM_SALES_TASK"
+    warehouse: "COMPUTE_WH"
+    procedure: "ANALYTICS.PROCEDURES.TRANSFORM_SALES_DATA"
+    after: "INGEST_SALES_TASK"
+
+  - name: "AGGREGATE_METRICS_TASK"
+    warehouse: "COMPUTE_WH"
+    procedure: "ANALYTICS.PROCEDURES.AGGREGATE_METRICS"
+    after: "TRANSFORM_SALES_TASK"
+
+sources:
+  s3_stage: "s3://your-bucket/sales-data/"
+  file_format: "CSV"
+  compression: "GZIP"
+
+targets:
+  raw_table: "ANALYTICS.RAW.SALES"
+  clean_table: "ANALYTICS.CLEAN.SALES"
+  metrics_table: "ANALYTICS.METRICS.DAILY_SALES"

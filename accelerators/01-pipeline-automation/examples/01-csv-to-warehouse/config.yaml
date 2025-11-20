@@ -1,0 +1,56 @@
+# Example 01: CSV to Warehouse Configuration
+
+# S3 Source Configuration
+s3:
+  bucket: "your-s3-bucket-name"
+  prefix: "sales/"
+  file_pattern: "sales_*.csv"
+  region: "us-east-1"
+
+# Snowflake Target Configuration
+snowflake:
+  account: "xy12345"  # Your Snowflake account ID
+  warehouse: "COMPUTE_WH"
+  database: "ANALYTICS"
+  schema: "sales"
+
+  # Tables
+  bronze_table: "bronze.sales_raw"
+  silver_table: "silver.sales_clean"
+
+  # Connection (set via Airflow connection)
+  connection_id: "snowflake_default"
+
+# Airflow DAG Configuration
+airflow:
+  dag_id: "sales_csv_to_snowflake"
+  schedule_interval: "@daily"  # Run daily at midnight
+  start_date: "2024-01-01"
+  catchup: false
+  max_active_runs: 1
+
+  # Task timeouts
+  task_timeout_minutes: 60
+  retry_delay_minutes: 5
+  retries: 3
+
+# Data Quality Checks
+quality:
+  enabled: true
+  checks:
+    - name: "row_count"
+      threshold: 0  # Fail if no rows
+    - name: "duplicate_check"
+      column: "sale_id"
+    - name: "date_range"
+      column: "sale_date"
+      max_days_future: 0
+
+# Notifications
+notifications:
+  email:
+    enabled: false
+    recipients: ["data-team@example.com"]
+  slack:
+    enabled: false
+    webhook_url: "${SLACK_WEBHOOK_URL}"

@@ -1,0 +1,64 @@
+pipeline:
+  name: "multi_source_medallion_databricks"
+  platform: "databricks"
+  orchestrator: "airflow"
+  description: "Multi-source medallion architecture with Kafka streaming and PostgreSQL batch"
+
+databricks:
+  workspace_url: "https://your-workspace.cloud.databricks.com"
+  cluster_id: "0123-456789-abcdef"
+  catalog: "analytics"
+  unity_catalog_enabled: true
+
+sources:
+  kafka:
+    bootstrap_servers: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
+    topics:
+      - "user-events"
+      - "transaction-events"
+    consumer_group: "databricks-streaming"
+    checkpoint_location: "s3://your-bucket/checkpoints/kafka"
+
+  postgresql:
+    host: "postgres.company.com"
+    port: 5432
+    database: "production"
+    username: "readonly_user"
+    # Password stored in Databricks Secrets
+    secret_scope: "postgres_creds"
+    password_secret: "db_password"
+    tables:
+      - schema: "public"
+        table: "users"
+        incremental_column: "updated_at"
+      - schema: "public"
+        table: "products"
+        incremental_column: "updated_at"
+
+medallion:
+  bronze:
+    catalog: "analytics"
+    schema: "bronze"
+    storage: "s3://your-bucket/bronze"
+    format: "delta"
+
+  silver:
+    catalog: "analytics"
+    schema: "silver"
+    storage: "s3://your-bucket/silver"
+    format: "delta"
+    enable_cdf: true  # Change Data Feed
+
+  gold:
+    catalog: "analytics"
+    schema: "gold"
+    storage: "s3://your-bucket/gold"
+    format: "delta"
+
+streaming:
+  trigger: "10 seconds"
+  max_files_per_trigger: 1000
+
+batch:
+  schedule: "0 */4 * * *"  # Every 4 hours
+  parallelism: 8

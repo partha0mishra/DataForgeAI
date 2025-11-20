@@ -1,0 +1,346 @@
+# Example 05: Real-time Fraud Detection Configuration
+
+# AWS Kinesis Configuration
+kinesis:
+  stream_name: "transactions"
+  region: "us-east-1"
+  endpoint_url: null  # Set to "http://localhost:4566" for LocalStack
+
+  # Consumer configuration
+  starting_position: "TRIM_HORIZON"  # Or "LATEST" for new data only
+  shard_count: 2
+  retention_hours: 24
+
+  # Credentials (use IAM roles in production)
+  # aws_access_key_id: "${AWS_ACCESS_KEY_ID}"
+  # aws_secret_access_key: "${AWS_SECRET_ACCESS_KEY}"
+
+# Redis Configuration
+redis:
+  host: "localhost"
+  port: 6379
+  db: 0
+  password: null  # Set if Redis has authentication
+  connection_pool_size: 10
+
+  # Data structure
+  customer_risk_hash: "customer_risk_scores"
+  metadata_prefix: "customer_metadata:"
+  metadata_ttl: 86400  # 24 hours in seconds
+
+# Delta Lake Configuration
+delta_lake:
+  base_path: "s3://your-bucket/fraud-detection"  # Or dbfs:/mnt/fraud-detection
+  checkpoint_path: "s3://your-bucket/checkpoints"
+
+  # Table paths
+  fraud_events_path: "s3://your-bucket/fraud-detection/fraud_events"
+  alerts_path: "s3://your-bucket/fraud-detection/alerts"
+
+  # Write configuration
+  optimized_writes: true
+  auto_compact: true
+  merge_schema: true
+
+# Spark Configuration
+spark:
+  app_name: "Fraud Detection - Real-time Streaming"
+
+  # Cluster configuration
+  executor:
+    instances: 4
+    memory: "4g"
+    cores: 2
+
+  driver:
+    memory: "2g"
+    cores: 1
+
+  # Streaming configuration
+  streaming:
+    checkpoint_location: "${delta_lake.checkpoint_path}"
+    schema_inference: true
+    trigger_interval: "30 seconds"  # Micro-batch interval
+
+  # Delta Lake extensions
+  sql_extensions: "io.delta.sql.DeltaSparkSessionExtension"
+  catalog: "org.apache.spark.sql.delta.catalog.DeltaCatalog"
+
+# Window Configuration
+windowing:
+  # Tumbling window for aggregations
+  window_duration: "5 minutes"
+  sliding_interval: null  # Set for sliding windows
+
+  # Watermark for late data
+  watermark_column: "event_timestamp"
+  watermark_threshold: "10 minutes"
+
+# Fraud Detection Configuration
+fraud_detection:
+  # Scoring thresholds
+  thresholds:
+    high_risk_score: 0.8
+    medium_risk_score: 0.5
+    low_risk_score: 0.3
+
+    max_amount_per_window: 10000.0
+    max_transactions_per_window: 50
+
+  # Suspicious indicators
+  suspicious:
+    merchant_categories:
+      - "GAMBLING"
+      - "CRYPTO"
+      - "WIRE_TRANSFER"
+
+    high_risk_countries:
+      - "NG"  # Nigeria
+      - "PK"  # Pakistan
+      - "RU"  # Russia
+      - "CN"  # China
+
+    unusual_hours:
+      start_hour: 2  # 2 AM
+      end_hour: 5    # 5 AM
+
+  # Scoring weights (must sum to 1.0)
+  scoring_weights:
+    customer_risk: 0.30
+    transaction_amount: 0.25
+    transaction_velocity: 0.20
+    merchant_risk: 0.15
+    amount_volatility: 0.10
+
+# Alert Configuration
+alerting:
+  enabled: true
+
+  # Slack notifications
+  slack:
+    enabled: true
+    webhook_url: "${SLACK_WEBHOOK_URL}"
+    channel: "#fraud-alerts"
+
+    # Rate limiting
+    max_alerts_per_minute: 10
+    max_alerts_per_hour: 100
+
+    # Alert levels
+    alert_on_critical: true  # Score >= 0.95
+    alert_on_high: true      # Score >= 0.8
+    alert_on_medium: false   # Score >= 0.5
+    alert_on_low: false      # Score >= 0.3
+
+  # Email notifications (optional)
+  email:
+    enabled: false
+    smtp_host: "smtp.gmail.com"
+    smtp_port: 587
+    from_address: "fraud-alerts@example.com"
+    to_addresses:
+      - "fraud-team@example.com"
+    username: "${EMAIL_USERNAME}"
+    password: "${EMAIL_PASSWORD}"
+
+  # PagerDuty integration (optional)
+  pagerduty:
+    enabled: false
+    integration_key: "${PAGERDUTY_INTEGRATION_KEY}"
+    severity_threshold: 0.9  # Only page for critical alerts
+
+# Transaction Generator Configuration
+transaction_generator:
+  # Generation parameters
+  customer_count: 1000
+  merchant_count: 500
+
+  # Transaction patterns
+  fraud_rate: 0.05  # 5% of transactions are fraudulent
+  fraud_patterns:
+    - "high_velocity"
+    - "high_amount"
+    - "suspicious_merchant"
+    - "risky_country"
+    - "unusual_hours"
+    - "velocity_spike"
+
+  # Geographic distribution
+  countries:
+    - code: "US"
+      weight: 0.50
+    - code: "GB"
+      weight: 0.15
+    - code: "DE"
+      weight: 0.10
+    - code: "FR"
+      weight: 0.08
+    - code: "CA"
+      weight: 0.05
+    - code: "AU"
+      weight: 0.04
+    - code: "JP"
+      weight: 0.03
+    - code: "NG"
+      weight: 0.02
+    - code: "PK"
+      weight: 0.01
+    - code: "RU"
+      weight: 0.01
+    - code: "CN"
+      weight: 0.01
+
+  # Currency distribution
+  currencies:
+    - code: "USD"
+      weight: 0.60
+    - code: "EUR"
+      weight: 0.20
+    - code: "GBP"
+      weight: 0.08
+    - code: "JPY"
+      weight: 0.05
+    - code: "CAD"
+      weight: 0.04
+    - code: "AUD"
+      weight: 0.03
+
+# Customer Risk Loader Configuration
+risk_loader:
+  # Data source
+  source_type: "csv"  # csv, postgres, mysql, api
+
+  # CSV source
+  csv:
+    file_path: "customer_risk_scores.csv"
+    delimiter: ","
+    has_header: true
+
+  # PostgreSQL source
+  postgres:
+    connection_string: "postgresql://user:password@localhost:5432/fraud_db"
+    table: "customer_risk_scores"
+    query: null  # Optional custom query
+
+  # API source
+  api:
+    url: "https://api.example.com/customer-risk-scores"
+    headers:
+      Authorization: "Bearer ${API_TOKEN}"
+    timeout: 30
+
+  # Loading configuration
+  batch_size: 1000
+  clear_existing: false  # Clear Redis before loading
+
+# Monitoring and Observability
+monitoring:
+  enabled: true
+
+  # Metrics to track
+  metrics:
+    - total_transactions_processed
+    - fraud_transactions_detected
+    - fraud_rate
+    - average_fraud_score
+    - processing_latency_ms
+    - window_watermark_delay_ms
+
+  # Prometheus metrics export
+  prometheus:
+    enabled: false
+    port: 9090
+    path: "/metrics"
+
+  # CloudWatch metrics
+  cloudwatch:
+    enabled: false
+    namespace: "FraudDetection"
+    region: "${AWS_REGION}"
+
+  # Logging
+  logging:
+    level: "INFO"  # DEBUG, INFO, WARN, ERROR
+    format: "json"
+    destination: "stdout"  # stdout, file, cloudwatch
+
+    # Structured logging
+    structured: true
+    include_transaction_id: true
+    include_customer_id: false  # PII consideration
+
+# Performance Tuning
+performance:
+  # Kinesis consumer
+  kinesis_consumer:
+    max_fetch_records: 10000
+    fetch_interval_ms: 1000
+    idle_time_between_reads_ms: 500
+
+  # Spark tuning
+  spark_tuning:
+    shuffle_partitions: 200
+    max_offsets_per_trigger: 10000
+    max_files_per_trigger: 1000
+
+  # Redis connection pool
+  redis_pool:
+    max_connections: 20
+    connection_timeout: 5
+    socket_timeout: 5
+
+  # Batch sizes
+  batch_sizes:
+    delta_write: 1000
+    alert_processing: 10
+
+# Data Retention
+retention:
+  # Delta Lake retention
+  fraud_events:
+    vacuum_enabled: true
+    retention_days: 90
+
+  alerts:
+    vacuum_enabled: true
+    retention_days: 30
+
+  # Redis retention
+  customer_metadata_ttl: 86400  # 24 hours
+
+# Testing and Development
+development:
+  # Use LocalStack for local testing
+  use_localstack: false
+  localstack_endpoint: "http://localhost:4566"
+
+  # Sample data
+  generate_sample_data: true
+  sample_data_count: 1000
+
+  # Reduced thresholds for testing
+  test_mode:
+    enabled: false
+    lower_fraud_threshold: 0.6
+    increased_fraud_rate: 0.20
+
+# Cost Optimization
+cost:
+  # Spot instances (if using EMR/Databricks)
+  spot_instances:
+    enabled: false
+    max_price_percentage: 70
+
+  # Auto-scaling
+  auto_scaling:
+    enabled: true
+    min_executors: 2
+    max_executors: 10
+    target_utilization: 0.75
+
+  # Resource tags
+  tags:
+    project: "fraud-detection"
+    environment: "production"
+    cost_center: "security"
+    owner: "fraud-team"

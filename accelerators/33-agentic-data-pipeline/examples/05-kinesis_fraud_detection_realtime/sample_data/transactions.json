@@ -1,0 +1,95 @@
+[
+  {
+    "transaction_id": "txn_001",
+    "user_id": "user_12345",
+    "timestamp": "2025-01-15T14:30:00Z",
+    "amount": 49.99,
+    "currency": "USD",
+    "merchant_id": "merchant_001",
+    "merchant_name": "Electronics Store",
+    "merchant_category": "electronics",
+    "location": {
+      "country": "USA",
+      "city": "New York",
+      "lat": 40.7128,
+      "lon": -74.0060
+    },
+    "payment_method": "credit_card",
+    "card_last_four": "1234"
+  },
+  {
+    "transaction_id": "txn_002",
+    "user_id": "user_12345",
+    "timestamp": "2025-01-15T14:35:00Z",
+    "amount": 149.99,
+    "currency": "USD",
+    "merchant_id": "merchant_002",
+    "merchant_name": "Online Retailer",
+    "merchant_category": "retail",
+    "location": {
+      "country": "USA",
+      "city": "New York",
+      "lat": 40.7128,
+      "lon": -74.0060
+    },
+    "payment_method": "credit_card",
+    "card_last_four": "1234"
+  },
+  {
+    "transaction_id": "txn_003",
+    "user_id": "user_12345",
+    "timestamp": "2025-01-15T14:36:00Z",
+    "amount": 899.99,
+    "currency": "USD",
+    "merchant_id": "merchant_003",
+    "merchant_name": "Luxury Goods",
+    "merchant_category": "luxury",
+    "location": {
+      "country": "USA",
+      "city": "Los Angeles",
+      "lat": 34.0522,
+      "lon": -118.2437
+    },
+    "payment_method": "credit_card",
+    "card_last_four": "1234",
+    "fraud_flag": "SUSPICIOUS_VELOCITY"
+  },
+  {
+    "transaction_id": "txn_004",
+    "user_id": "user_67890",
+    "timestamp": "2025-01-15T14:40:00Z",
+    "amount": 5499.99,
+    "currency": "USD",
+    "merchant_id": "merchant_999",
+    "merchant_name": "High Risk Merchant",
+    "merchant_category": "jewelry",
+    "location": {
+      "country": "Unknown",
+      "city": "Unknown",
+      "lat": 0.0,
+      "lon": 0.0
+    },
+    "payment_method": "credit_card",
+    "card_last_four": "5678",
+    "fraud_flag": "SUSPICIOUS_MERCHANT"
+  },
+  {
+    "transaction_id": "txn_005",
+    "user_id": "user_11111",
+    "timestamp": "2025-01-15T14:45:00Z",
+    "amount": 29.99,
+    "currency": "USD",
+    "merchant_id": "merchant_004",
+    "merchant_name": "Coffee Shop",
+    "merchant_category": "food",
+    "location": {
+      "country": "USA",
+      "city": "Seattle",
+      "lat": 47.6062,
+      "lon": -122.3321
+    },
+    "payment_method": "debit_card",
+    "card_last_four": "9012",
+    "fraud_flag": "CLEAN"
+  }
+]

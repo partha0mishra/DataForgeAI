@@ -1,0 +1,69 @@
+pipeline:
+  name: "secure_sqlserver_to_synapse"
+  platform: "azure_synapse"
+  orchestrator: "synapse_pipelines"
+  description: "Secure enterprise data pipeline with encryption and RBAC"
+
+azure:
+  subscription_id: "your-subscription-id"
+  resource_group: "data-platform-rg"
+  region: "eastus"
+
+sql_server:
+  server: "prod-sql.database.windows.net"
+  database: "ProductionDB"
+  authentication: "AAD"  # Azure Active Directory
+  tables:
+    - schema: "dbo"
+      table: "Customers"
+      incremental_column: "ModifiedDate"
+    - schema: "dbo"
+      table: "Orders"
+      incremental_column: "ModifiedDate"
+
+synapse:
+  workspace_name: "enterprise-synapse"
+  dedicated_pool: "EnterprisePool"
+  serverless_pool: "Built-in"
+  storage_account: "synapsedata"
+  container: "enterprise-data"
+
+security:
+  encryption:
+    at_rest: "AES256"
+    in_transit: "TLS12"
+    column_level:
+      - table: "Customers"
+        columns: ["Email", "Phone", "SSN"]
+        encryption_type: "deterministic"
+
+  row_level_security:
+    enabled: true
+    policies:
+      - table: "Customers"
+        predicate: "UserRegion = USER_NAME()"
+
+  dynamic_data_masking:
+    - table: "Customers"
+      column: "Email"
+      masking_function: "email"
+    - table: "Customers"
+      column: "SSN"
+      masking_function: "default"
+
+  azure_ad_groups:
+    - name: "DataEngineers"
+      permissions: ["READ", "WRITE"]
+    - name: "DataAnalysts"
+      permissions: ["READ"]
+
+synapse_pipelines:
+  - name: "Incremental_Load_Customers"
+    schedule: "0 */6 * * *"
+  - name: "Incremental_Load_Orders"
+    schedule: "0 */6 * * *"
+
+monitoring:
+  enable_auditing: true
+  log_analytics_workspace: "synapse-logs"
+  alert_email: "security@company.com"

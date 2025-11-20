@@ -1,0 +1,48 @@
+pipeline:
+  name: "ga4_to_bigquery_looker"
+  platform: "bigquery"
+  orchestrator: "cloud_composer"
+  description: "Google Analytics 4 to BigQuery with Looker dashboards"
+
+gcp:
+  project_id: "your-gcp-project"
+  region: "us-central1"
+
+ga4:
+  property_id: "123456789"
+  data_stream_id: "987654321"
+  export_enabled: true
+  export_location: "US"
+
+bigquery:
+  dataset_raw: "analytics_raw"
+  dataset_staging: "analytics_staging"
+  dataset_reporting: "analytics_reporting"
+  location: "US"
+  partition_field: "event_date"
+  clustering_fields:
+    - "user_pseudo_id"
+    - "event_name"
+
+cloud_composer:
+  environment_name: "ga4-analytics"
+  airflow_version: "2.5.1"
+  python_version: "3.10"
+
+looker:
+  project_name: "ga4_analytics"
+  model_name: "web_analytics"
+  connection: "bigquery_analytics"
+
+reporting_tables:
+  - name: "user_sessions"
+    refresh_schedule: "0 */4 * * *"
+
+  - name: "page_views"
+    refresh_schedule: "0 */4 * * *"
+
+  - name: "conversion_funnel"
+    refresh_schedule: "0 6 * * *"
+
+  - name: "traffic_sources"
+    refresh_schedule: "0 6 * * *"
